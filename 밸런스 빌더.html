@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ProjectA 밸런스 교정 빌더</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&family=Roboto+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/builder.css">
+</head>
+<body>
+
+  <!-- 상단 툴바 -->
+  <div class="toolbar">
+    <div class="brand"><b>밸런스 교정 빌더</b><span>ProjectA · 육성 6개월 / 전투 2분</span></div>
+    <div class="spacer"></div>
+    <button class="tbtn" id="btn-import">CSV 불러오기</button>
+    <button class="tbtn" id="btn-export">스냅샷 내보내기</button>
+    <button class="tbtn" id="btn-reset">초기화</button>
+    <span class="aibadge" title="Claude Design 환경에서는 내장 AI를 자동 사용하고, 독립 실행 시 아래 Gemini 키로 폴백합니다"><span class="dot on"></span>AI 내장 우선 · 키 폴백</span>
+    <!-- 독립 실행(file:// · 일반 서버) 폴백용 — 내장 AI(window.claude)가 있으면 이 값은 무시됨 -->
+    <select id="model" class="tbtn" title="폴백 시 사용할 Gemini 모델" style="appearance:auto">
+      <option value="gemini-2.0-flash">gemini-2.0-flash</option>
+      <option value="gemini-2.0-flash-lite">gemini-2.0-flash-lite</option>
+      <option value="gemini-1.5-flash">gemini-1.5-flash</option>
+      <option value="gemini-1.5-pro">gemini-1.5-pro</option>
+    </select>
+    <div class="keypill" title="독립 실행 시 사용할 Google Gemini API 키 — 내장 AI가 있으면 무시됩니다"><span class="dot" id="keydot"></span><input id="apikey" type="password" placeholder="Gemini API 키 (폴백용·로컬 저장)" autocomplete="off"></div>
+  </div>
+
+  <!-- 목표바 -->
+  <div class="targetbar" id="targetbar">
+    <div class="grp"><label>육성 목표</label><input type="number" data-path="targets.maxDays" value="180"><span class="unit">일</span>
+      <span class="vtxt">±</span><input type="number" data-path="targets.daysTol" value="25"><span class="unit">일</span></div>
+    <div class="grp"><label>전투 목표</label><input type="number" data-path="targets.clearSec" value="120"><span class="unit">초</span>
+      <span class="vtxt">±</span><input type="number" data-path="targets.clearTol" value="15"><span class="unit">초</span></div>
+    <div class="grp muted" style="font-size:11px">초록=목표충족 · 노랑=근접/주의 · 빨강=이탈 — 값을 바꾸면 즉시 재계산됩니다</div>
+  </div>
+
+  <!-- 본문 -->
+  <div class="sheet" id="sheet"></div>
+
+  <!-- 시트탭 -->
+  <div class="sheettabs">
+    <div class="tab active" data-tab="dashboard"><span class="ico" style="background:#2f6f4f"></span>대시보드</div>
+    <div class="tab" data-tab="economy"><span class="ico" style="background:#b7791f"></span>육성 경제</div>
+    <div class="tab" data-tab="combat"><span class="ico" style="background:#c0392b"></span>전투 시뮬</div>
+    <div class="tab" data-tab="doctrine"><span class="ico" style="background:#a23b72"></span>밸런스 기조</div>
+    <div class="tab" data-tab="master"><span class="ico" style="background:#5b6570"></span>마스터 데이터</div>
+    <div class="tab" data-tab="units"><span class="ico" style="background:#8e44ad"></span>유닛 설계</div>
+    <div class="tab" data-tab="builder"><span class="ico" style="background:#2b6cb0"></span>데이터 빌더</div>
+  </div>
+
+  <!-- CSV 임포트 모달 -->
+  <div class="modal-bg" id="importModal">
+    <div class="modal">
+      <span class="modal-close">&times;</span>
+      <h3>CSV 마스터 불러오기</h3>
+      <p class="hint" style="margin-top:0">4-Row 헤더(타입 / 스코프 / 필드명 / 데이터) 규칙의 CSV를 지원합니다. UnitMaster · UnitLevelUpCostMaster · StarUpCostMaster 등은 곡선/테이블에 자동 매핑되고, 나머지는 [마스터 데이터] 탭에 보관됩니다.</p>
+      <div class="drop" id="dropzone">CSV 파일을 여기에 끌어다 놓거나 클릭해 선택<br><span class="muted" style="font-size:11px">여러 파일 동시 가능</span></div>
+      <input type="file" id="fileInput" accept=".csv" multiple style="display:none">
+      <div class="filelist" id="importList"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="js/data.js"></script>
+  <script src="js/schema.js"></script>
+  <script src="js/builder.js"></script>
+  <script src="js/doctrine.js"></script>
+  <script src="js/economy.js"></script>
+  <script src="js/combat.js"></script>
+  <script src="js/units.js"></script>
+  <script src="js/gemini.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/render2.js"></script>
+  <script src="js/render_units.js"></script>
+  <script src="js/render_builder.js"></script>
+  <script src="js/render_doctrine.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
