@@ -427,17 +427,22 @@
       <tbody>${stBody || `<tr><td colspan="4" class="l muted">성급 데이터 없음</td></tr>`}</tbody>
       <tfoot><tr><td class="l">최대 누적</td><td class="num">–</td><td class="num total">${fmtK(d.cum.shard)}</td><td class="l muted">캐릭터 조각만 사용 · 골드 미사용</td></tr></tfoot></table></div>`;
 
-    // 3) 속성 스킬북 — 스킬·레벨별 차등 + 누적
-    const lvls = d.skills[0] ? d.skills[0].rows.map((r) => r.lv) : [];
-    const skHead = `<tr><th class="l">스킬</th>${lvls.map((lv) => `<th class="num">Lv.${lv}</th>`).join("")}<th class="num">누적 스킬북</th></tr>`;
-    const skBody = d.skills.map((sk) => `<tr>
-      <td class="l">${sk.label}</td>
-      ${sk.rows.map((r) => `<td class="num">${r.book}</td>`).join("")}
-      <td class="num total">${fmtK(sk.totalBook)}</td>
-    </tr>`).join("");
-    const skTable = `<div style="overflow-x:auto;max-width:100%;border:1px solid #e6eaee;border-radius:8px"><table class="grid" style="min-width:max-content">
-      <thead>${skHead}</thead><tbody>${skBody}</tbody>
-      <tfoot><tr><td class="l">합계 누적</td><td class="num muted" colspan="${lvls.length}">스킬 레벨업당 속성 스킬북 (구간별 증가)</td><td class="num total">${fmtK(d.cum.skillBook)}</td></tr></tfoot></table></div>`;
+    // 3) 속성 스킬북 — 레벨을 행으로(가로 스크롤 제거), 스킬 3종을 열로 전치
+    const skList = d.skills || [];
+    const lvSet = {};
+    skList.forEach((s) => s.rows.forEach((r) => { lvSet[r.lv] = true; }));
+    const allLv = Object.keys(lvSet).map(Number).sort((a, b) => a - b);
+    const bookMap = skList.map((s) => { const m = {}; s.rows.forEach((r) => { m[r.lv] = r.book; }); return m; });
+    const skHead = `<tr><th class="l">레벨</th>${skList.map((s) => `<th class="num">${s.label}</th>`).join("")}<th class="num">합계</th></tr>`;
+    const skBody = allLv.map((lv) => {
+      let rowSum = 0;
+      const cells = bookMap.map((m) => { const b = m[lv] || 0; rowSum += b; return `<td class="num">${b}</td>`; }).join("");
+      return `<tr><td class="l">Lv.${lv}</td>${cells}<td class="num cumcol">${rowSum}</td></tr>`;
+    }).join("");
+    const skFoot = `<tr><td class="l">누적 합계</td>${skList.map((s) => `<td class="num total">${fmtK(s.totalBook)}</td>`).join("")}<td class="num total">${fmtK(d.cum.skillBook)}</td></tr>`;
+    const skTable = `<div style="max-height:340px;overflow-y:auto;overflow-x:hidden;border:1px solid #e6eaee;border-radius:8px"><table class="grid">
+      <thead>${skHead}</thead><tbody>${skBody || `<tr><td colspan="${skList.length + 2}" class="l muted">스킬 데이터 없음</td></tr>`}</tbody>
+      <tfoot>${skFoot}</tfoot></table></div>`;
 
     return `<div class="section"><h2>레벨별 차등 요구치 · 구간 최대 누적 <span class="sub">레벨별 골드(그래프) · 성급업 조각 · 속성 스킬북</span></h2>
       <div class="cumcards">
@@ -451,7 +456,7 @@
         <div class="col"><div class="subh">레벨업 골드 (레벨별 1→2 …)</div>${lvTable}</div>
         <div class="col"><div class="subh">성급업 조각 <span class="muted">(골드 없음)</span></div>${stTable}</div>
       </div>
-      <div class="subh" style="margin-top:12px">속성 스킬북 (스킬·레벨별 차등)</div>${skTable}</div>`;
+      <div class="subh" style="margin-top:12px">속성 스킬북 (레벨별 · 스킬 3종, 세로 스크롤)</div>${skTable}</div>`;
   }
 
   window.Render = window.Render || {};
