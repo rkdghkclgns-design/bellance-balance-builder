@@ -184,7 +184,7 @@
 
   // ---- 곡선 생성기 / 열 설정 / 일괄 편집 패널 -----------------
   var cg = {
-    open: false, tab: "curve",
+    open: true, tab: "curve",
     type: "exp", base: 100, ratio: 1.35, count: 12, custom: "floor(base * pow(ratio, i))", col: "",
     bcol: "", bop: "mul", bval: 2, bround: "none", bfrom: 1, bto: 0,
     scol: "", sval: 0, sfind: "", srep: "",

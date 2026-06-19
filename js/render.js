@@ -435,9 +435,9 @@
       ${sk.rows.map((r) => `<td class="num">${r.book}</td>`).join("")}
       <td class="num total">${fmtK(sk.totalBook)}</td>
     </tr>`).join("");
-    const skTable = `<table class="grid">
+    const skTable = `<div style="overflow-x:auto;max-width:100%;border:1px solid #e6eaee;border-radius:8px"><table class="grid" style="min-width:max-content">
       <thead>${skHead}</thead><tbody>${skBody}</tbody>
-      <tfoot><tr><td class="l">합계 누적</td><td class="num muted" colspan="${lvls.length}">스킬 레벨업당 속성 스킬북 (구간별 증가)</td><td class="num total">${fmtK(d.cum.skillBook)}</td></tr></tfoot></table>`;
+      <tfoot><tr><td class="l">합계 누적</td><td class="num muted" colspan="${lvls.length}">스킬 레벨업당 속성 스킬북 (구간별 증가)</td><td class="num total">${fmtK(d.cum.skillBook)}</td></tr></tfoot></table></div>`;
 
     return `<div class="section"><h2>레벨별 차등 요구치 · 구간 최대 누적 <span class="sub">레벨별 골드(그래프) · 성급업 조각 · 속성 스킬북</span></h2>
       <div class="cumcards">
