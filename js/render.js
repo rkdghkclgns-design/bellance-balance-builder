@@ -422,10 +422,10 @@
       <td class="num total">${fmtK(r.cumShard)}</td>
       <td><div class="cbar shard"><i style="width:${d.cum.shard ? Math.min(100, (r.cumShard / d.cum.shard) * 100) : 0}%"></i></div></td>
     </tr>`).join("");
-    const stTable = `<table class="grid">
+    const stTable = `<div style="max-height:340px;overflow:auto;border:1px solid #e6eaee;border-radius:8px"><table class="grid">
       <thead><tr><th class="l">성급 단계</th><th class="num">필요 조각(차등)</th><th class="num">누적 조각</th><th>구간 최대 대비</th></tr></thead>
       <tbody>${stBody || `<tr><td colspan="4" class="l muted">성급 데이터 없음</td></tr>`}</tbody>
-      <tfoot><tr><td class="l">최대 누적</td><td class="num">–</td><td class="num total">${fmtK(d.cum.shard)}</td><td class="l muted">캐릭터 조각만 사용 · 골드 미사용</td></tr></tfoot></table>`;
+      <tfoot><tr><td class="l">최대 누적</td><td class="num">–</td><td class="num total">${fmtK(d.cum.shard)}</td><td class="l muted">캐릭터 조각만 사용 · 골드 미사용</td></tr></tfoot></table></div>`;
 
     // 3) 속성 스킬북 — 스킬·레벨별 차등 + 누적
     const lvls = d.skills[0] ? d.skills[0].rows.map((r) => r.lv) : [];

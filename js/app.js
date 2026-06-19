@@ -143,10 +143,19 @@
     });
     function finish() {
       if (lastName) R.setBuilderTable(lastName);
+      // 전체 파일 적재 후 시뮬 상태를 한 번 더 완전 재동기화(비동기 적재 순서와 무관하게 보장)
+      if (window.Builder && Builder.syncAll) Builder.syncAll();
       render();
       const lg = document.getElementById("b-loadlog");
-      if (lg) lg.innerHTML = `<div class="bll-h">불러오기 완료 · ${ok}/${csvs.length} 파일 (원본 그대로 적재)</div>` + lines.map((l) => `<div class="bll-row">${l}</div>`).join("");
-      toast(`${ok}개 CSV를 불러왔습니다.`);
+      // 시뮬 반영 요약 — 다른 탭(대시보드·전투·육성경제)이 실제로 무엇을 반영하는지 즉시 표시.
+      // 여기에 시드 유닛(SSR_프로토)이 그대로 보이면 파일명이 테이블명과 안 맞은 것.
+      let syncLine = "";
+      try {
+        const u = Data.state.unit, stg = (Data.state.stages || []).length, lvN = (Data.state.costs.levelTable || []).length;
+        syncLine = `<div class="bll-row" style="color:#1f8a4c;font-weight:600">✓ 다른 탭 자동 반영됨 — 대표 유닛 <b>${u.name}</b> (HP ${u.base.hp}/ATK ${u.base.atk}) · 스테이지 ${stg}개 · 레벨비용 ${lvN}행</div>`;
+      } catch (_) {}
+      if (lg) lg.innerHTML = `<div class="bll-h">불러오기 완료 · ${ok}/${csvs.length} 파일 (원본 그대로 적재)</div>` + syncLine + lines.map((l) => `<div class="bll-row">${l}</div>`).join("");
+      toast(`${ok}개 CSV를 불러왔습니다. (대시보드·전투·육성경제 자동 반영)`);
       // 무결성 게이트: 적재 직후 검증, 치명 이슈 시 경고
       try {
         const v = Builder.validate();

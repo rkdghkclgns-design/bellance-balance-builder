@@ -10,7 +10,7 @@
 
   var GRADES    = ["R", "SR", "SSR"];
   var GRADE_C   = { R: "#5b6570", SR: "#2563eb", SSR: "#b7791f" };
-  var ROLE_KEYS = ["tank", "attacker", "mage", "support", "assassin"];
+  var ROLE_KEYS = ["defender", "attacker", "support", "healer"];
 
   /* ── 헬퍼 ─────────────────────────────────────────────── */
   function ed(path, val, step, w) {
@@ -87,20 +87,24 @@
   /* ── 섹션 5 : 성급강화 조각 비용 ──────────────────────── */
   function secShardCosts(d) {
     var ss = d.starSystem, sc = ss.shardCosts || {};
+    var maxN = Math.max.apply(null, GRADES.map(function (g) { return (d.grades[g] || {}).maxStar || ss.maxSteps; }));
     var heads = GRADES.map(function (g) {
       return "<th class=\"num\">" + bdg(g, GRADE_C[g]) + " 조각수</th>";
     }).join("");
-    var rows = Array.from({ length: ss.maxSteps }, function (_, i) {
+    var rows = Array.from({ length: maxN }, function (_, i) {
       var cells = GRADES.map(function (g) {
+        var gmax = (d.grades[g] || {}).maxStar || ss.maxSteps;
+        if (i >= gmax) return "<td class=\"num muted\">–</td>";   // 해당 등급 성급 상한 초과
         return ed("unitDesign.starSystem.shardCosts." + g + "." + i, (sc[g] || [])[i] || 0, 1);
       }).join("");
       var mult = Math.pow(1 + ss.multPerStep, i + 1);
       return "<tr><td class=\"l\">★" + (i + 1) + " 단계</td>" + cells +
         "<td class=\"num muted\">×" + mult.toFixed(3) + "</td></tr>";
     }).join("");
-    return "<table class=\"grid\">" +
+    return "<div style=\"max-height:340px;overflow:auto;border:1px solid #e6eaee;border-radius:8px\"><table class=\"grid\">" +
       "<thead><tr><th class=\"l\">강화 단계</th>" + heads + "<th class=\"num\">누적 배율</th></tr></thead>" +
-      "<tbody>" + rows + "</tbody></table>";
+      "<tbody>" + rows + "</tbody></table></div>" +
+      "<div class=\"hint\">등급별 성급 상한: R ★10 · SR ★20 · SSR ★30 (상한 초과 칸은 '–')</div>";
   }
 
   /* ── 섹션 6 : 유닛 명부 ────────────────────────────────── */

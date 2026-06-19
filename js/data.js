@@ -25,6 +25,11 @@
     return 1.0;
   }
 
+  // ---- 성급(★) 조각 비용: 등급별 단계 수 (R 10 / SR 20 / SSR 30) · 인덱스 0 = ★0→★1 ----
+  const STAR_SHARD_R  = [5, 8, 12, 18, 25, 35, 45, 60, 75, 95];
+  const STAR_SHARD_SR = [10, 15, 20, 30, 40, 55, 70, 90, 115, 145, 180, 220, 270, 330, 400, 480, 575, 685, 815, 965];
+  const STAR_SHARD_SSR = [20, 30, 45, 60, 80, 105, 135, 170, 210, 260, 320, 390, 470, 560, 670, 800, 950, 1120, 1320, 1550, 1820, 2130, 2490, 2900, 3370, 3910, 4530, 5240, 6050, 6980];
+
   // ---- 기본 상태 ------------------------------------------------
   const defaultState = {
     meta: {
@@ -46,29 +51,18 @@
       rarity: "SSR",
       maxLevel: 60,
       baseStar: 0,     // 0성 시작
-      maxStar: 10,     // 최대 성급 (starSystem 10단계 기준)
+      maxStar: 30,     // 최대 성급 (SSR 기준 · 등급별 R10/SR20/SSR30)
       base: { hp: 9000, atk: 950, def: 380, atkInterval: 1.4 }, // 1레벨 기준
       perLevel: { hp: 220, atk: 26, def: 9 }, // LevelUPDeltaStat (ClassType 평균)
-      starMult: 250,   // 성급당 스탯 배수(Permille) → +25%/성급
+      starMult: 100,   // 성급당 스탯 배수(Permille) → +10%/성급 (30단계 기준)
     },
 
     // ---- 비용 곡선(파라미터형, CSV로 덮어쓰기 가능) ----
     costs: {
       // gold(lv)=round(goldBase * lv^goldExp), exp 동일 패턴
       level: { goldBase: 40, goldExp: 2.0, expBase: 70, expExp: 2.0 },
-      // 성급업: 캐릭터 조각만 사용(골드 0) · 0★→10★ 성급별 차등(조각 점증)
-      star: [
-        { from: 0, to: 1, gold: 0, shard: 20 },
-        { from: 1, to: 2, gold: 0, shard: 30 },
-        { from: 2, to: 3, gold: 0, shard: 45 },
-        { from: 3, to: 4, gold: 0, shard: 60 },
-        { from: 4, to: 5, gold: 0, shard: 80 },
-        { from: 5, to: 6, gold: 0, shard: 105 },
-        { from: 6, to: 7, gold: 0, shard: 135 },
-        { from: 7, to: 8, gold: 0, shard: 170 },
-        { from: 8, to: 9, gold: 0, shard: 210 },
-        { from: 9, to: 10, gold: 0, shard: 260 },
-      ],
+      // 성급업: 캐릭터 조각만 사용(골드 0) · 0★→30★ 성급별 차등(조각 점증, SSR 기준)
+      star: STAR_SHARD_SSR.map(function (sh, i) { return { from: i, to: i + 1, gold: 0, shard: sh }; }),
       // 스킬 3종: 1→max, gold=goldBase*lv^exp, 스킬북=bookBase*(lv-1)^bookExp (구간별 차등)
       skills: {
         base:    { label: "기본 액티브", maxLevel: 10, goldBase: 4000, goldExp: 2.0, bookBase: 4, bookExp: 1.35 },
@@ -147,54 +141,49 @@
       },
       // 성급강화 시스템 (HP·ATK·DEF 복리 증가)
       starSystem: {
-        maxSteps: 10,
-        multPerStep: 0.10, // 단계당 +10% 복리
-        // 등급별 단계별 조각 필요량 (인덱스 0 = 1단계)
-        shardCosts: {
-          R:   [5,  8,  12, 18, 25, 35, 45,  60,  75,  95],
-          SR:  [10, 15, 20, 30, 40, 55, 70,  90, 115, 145],
-          SSR: [20, 30, 45, 60, 80,105,135, 170, 210, 260],
-        },
+        maxSteps: 30,       // 최대 강화 단계(최댓값 · 실제 상한은 등급별 grades[*].maxStar)
+        multPerStep: 0.10,  // 단계당 +10% 복리
+        // 등급별 단계별 조각 필요량 (인덱스 0 = ★0→★1) · R10 / SR20 / SSR30
+        shardCosts: { R: STAR_SHARD_R, SR: STAR_SHARD_SR, SSR: STAR_SHARD_SSR },
       },
       // Lv1 · R등급 · 역할보정 전 기준값
       baseRef:     { hp: 5000, atk: 500, def: 200 },
       // 레벨당 성장 (등급 무관 동일)
       perLevelRef: { hp: 150,  atk: 15,  def: 6   },
-      // 역할별 스탯 배율 (사용자 직접 설정 가능)
+      // 역할 4종 (1 방어형 · 2 공격형 · 3 지원형 · 4 회복형) · 사용자 직접 설정 가능
       roles: {
-        tank:     { label: "탱커",   hpMult: 1.30, atkMult: 0.70, defMult: 1.25 },
-        attacker: { label: "딜러",   hpMult: 0.85, atkMult: 1.35, defMult: 0.85 },
-        mage:     { label: "마법사", hpMult: 0.80, atkMult: 1.40, defMult: 0.80 },
-        support:  { label: "서포터", hpMult: 1.05, atkMult: 0.80, defMult: 1.00 },
-        assassin: { label: "암살자", hpMult: 0.75, atkMult: 1.45, defMult: 0.75 },
+        defender: { label: "방어형", hpMult: 1.35, atkMult: 0.65, defMult: 1.30 },
+        attacker: { label: "공격형", hpMult: 0.85, atkMult: 1.40, defMult: 0.80 },
+        support:  { label: "지원형", hpMult: 1.05, atkMult: 0.85, defMult: 1.05 },
+        healer:   { label: "회복형", hpMult: 1.10, atkMult: 0.75, defMult: 1.00 },
       },
       // 유닛 명부 (offset=개인 보정, spd=개별 SPD 성장, fixed=고정 스탯)
       units: [
-        { id:"u001", name:"철벽수호자", grade:"SSR", role:"tank",
+        { id:"u001", name:"철벽수호자", grade:"SSR", role:"defender",
           offset:{hp:200,  atk:-50,  def:100 }, spd:{base:85,  perLevel:0.10},
           fixed:{critRate:5,  critDmg:150, defPen:0,  critRes:25} },
         { id:"u002", name:"폭풍검사",   grade:"SSR", role:"attacker",
           offset:{hp:150,  atk:80,   def:-30 }, spd:{base:112, perLevel:0.20},
           fixed:{critRate:20, critDmg:200, defPen:10, critRes:5 } },
-        { id:"u003", name:"섬광마법사", grade:"SSR", role:"mage",
+        { id:"u003", name:"섬광마법사", grade:"SSR", role:"support",
           offset:{hp:100,  atk:100,  def:-50 }, spd:{base:105, perLevel:0.18},
           fixed:{critRate:25, critDmg:220, defPen:20, critRes:5 } },
-        { id:"u004", name:"달빛치유사", grade:"SSR", role:"support",
+        { id:"u004", name:"달빛치유사", grade:"SSR", role:"healer",
           offset:{hp:250,  atk:-100, def:80  }, spd:{base:98,  perLevel:0.15},
           fixed:{critRate:10, critDmg:150, defPen:0,  critRes:15} },
-        { id:"u005", name:"어둠암살자", grade:"SSR", role:"assassin",
+        { id:"u005", name:"어둠암살자", grade:"SSR", role:"attacker",
           offset:{hp:50,   atk:120,  def:-80 }, spd:{base:130, perLevel:0.25},
           fixed:{critRate:35, critDmg:250, defPen:30, critRes:0 } },
-        { id:"u006", name:"대지방패",   grade:"SR",  role:"tank",
+        { id:"u006", name:"대지방패",   grade:"SR",  role:"defender",
           offset:{hp:180,  atk:-40,  def:90  }, spd:{base:82,  perLevel:0.08},
           fixed:{critRate:5,  critDmg:150, defPen:0,  critRes:20} },
         { id:"u007", name:"화염전사",   grade:"SR",  role:"attacker",
           offset:{hp:120,  atk:60,   def:-20 }, spd:{base:108, perLevel:0.17},
           fixed:{critRate:18, critDmg:190, defPen:8,  critRes:5 } },
-        { id:"u008", name:"바람궁수",   grade:"SR",  role:"assassin",
+        { id:"u008", name:"바람궁수",   grade:"SR",  role:"attacker",
           offset:{hp:80,   atk:90,   def:-60 }, spd:{base:125, perLevel:0.22},
           fixed:{critRate:30, critDmg:230, defPen:25, critRes:0 } },
-        { id:"u009", name:"견습기사",   grade:"R",   role:"tank",
+        { id:"u009", name:"견습기사",   grade:"R",   role:"defender",
           offset:{hp:160,  atk:-30,  def:70  }, spd:{base:80,  perLevel:0.06},
           fixed:{critRate:5,  critDmg:150, defPen:0,  critRes:15} },
         { id:"u010", name:"신참궁수",   grade:"R",   role:"attacker",
@@ -379,6 +368,20 @@
     if (!loaded.doctrine) loaded.doctrine = JSON.parse(JSON.stringify(_pristine.doctrine));
     if (loaded.doctrine && !loaded.doctrine.growth) loaded.doctrine.growth = JSON.parse(JSON.stringify(_pristine.doctrine.growth));
     if (loaded.income && loaded.income.adMultiplier == null) loaded.income.adMultiplier = 2;
+    // 역할 4종(방어형/공격형/지원형/회복형)으로 교체 + 구 역할키 매핑
+    if (loaded.unitDesign && loaded.unitDesign.roles &&
+        (loaded.unitDesign.roles.tank || loaded.unitDesign.roles.mage || loaded.unitDesign.roles.assassin)) {
+      loaded.unitDesign.roles = JSON.parse(JSON.stringify(_pristine.unitDesign.roles));
+      const RMAP = { tank: "defender", mage: "support", assassin: "attacker", support: "healer", attacker: "attacker", defender: "defender", healer: "healer" };
+      (loaded.unitDesign.units || []).forEach(function (u) { u.role = RMAP[u.role] || "attacker"; });
+    }
+    // 성급 배율: 구버전 +25%/단계(250)는 30단계에서 과도 → +10%/단계(100)
+    if (loaded.unit && +loaded.unit.starMult === 250) loaded.unit.starMult = 100;
+    // 성급강화 시스템: 구버전 10단계 → 등급별(최대 30) 조각표로 보강
+    if (loaded.unitDesign && loaded.unitDesign.starSystem && (+loaded.unitDesign.starSystem.maxSteps || 0) < 30) {
+      loaded.unitDesign.starSystem.maxSteps = 30;
+      loaded.unitDesign.starSystem.shardCosts = JSON.parse(JSON.stringify(_pristine.unitDesign.starSystem.shardCosts));
+    }
     if (loaded.unitDesign && loaded.unitDesign.grades) {
       ["R", "SR", "SSR"].forEach((g) => {
         if (loaded.unitDesign.grades[g] && loaded.unitDesign.grades[g].maxStar == null)
@@ -398,6 +401,7 @@
   window.Data = {
     state: JSON.parse(JSON.stringify(defaultState)),
     ELEMENTS, EL_KOR, ELEMENT_CHART, elementMult,
+    STAR_SHARD_SSR,
     parseCSV, ingestCSV, exportCSV,
     lastSaveError: null, storageMode: "localStorage",
     reset() { window.Data.state = JSON.parse(JSON.stringify(_pristine)); },

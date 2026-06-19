@@ -6,6 +6,9 @@
 (function () {
   "use strict";
   const S = window.Schema;
+  // 성급 조각 비용(SSR 30단계) — data.js의 배열을 재사용(중복 방지), 미로드 시 폴백
+  const SSR_SHARD = (window.Data && Data.STAR_SHARD_SSR) ? Data.STAR_SHARD_SSR
+    : [20, 30, 45, 60, 80, 105, 135, 170, 210, 260, 320, 390, 470, 560, 670, 800, 950, 1120, 1320, 1550, 1820, 2130, 2490, 2900, 3370, 3910, 4530, 5240, 6050, 6980];
 
   // ---- 시드 (Define enum 전체 + 마스터 예시) -------------------
   function r(o) { return o; }
@@ -146,18 +149,7 @@
       {Id:5,Class:4,DeltaHp:240,DeltaAtk:20,DeltaDef:11},
       {Id:6,Class:5,DeltaHp:160,DeltaAtk:32,DeltaDef:6},
     ],
-    StarUpCostMaster: [
-      {Id:1,FromStar:0,ToStar:1,Gold:0,Shard:20},
-      {Id:2,FromStar:1,ToStar:2,Gold:0,Shard:30},
-      {Id:3,FromStar:2,ToStar:3,Gold:0,Shard:45},
-      {Id:4,FromStar:3,ToStar:4,Gold:0,Shard:60},
-      {Id:5,FromStar:4,ToStar:5,Gold:0,Shard:80},
-      {Id:6,FromStar:5,ToStar:6,Gold:0,Shard:105},
-      {Id:7,FromStar:6,ToStar:7,Gold:0,Shard:135},
-      {Id:8,FromStar:7,ToStar:8,Gold:0,Shard:170},
-      {Id:9,FromStar:8,ToStar:9,Gold:0,Shard:210},
-      {Id:10,FromStar:9,ToStar:10,Gold:0,Shard:260},
-    ],
+    StarUpCostMaster: SSR_SHARD.map(function (sh, i) { return { Id: i + 1, FromStar: i, ToStar: i + 1, Gold: 0, Shard: sh }; }),
     StarUpDeltaStatMaster: [
       {Id:1,Star:5,HpPermille:250,AtkPermille:250,DefPermille:250},
       {Id:2,Star:6,HpPermille:250,AtkPermille:250,DefPermille:250},
@@ -234,6 +226,22 @@
         st.builderData.StarUpCostMaster = seeds.StarUpCostMaster.map((x) => Object.assign(S.blankRow("StarUpCostMaster"), x));
       }
       st.builderData.__seedV4 = true;
+    }
+    // 성급 상한 등급별 정렬(R10/SR20/SSR30): UnitMaster 성급 컬럼 보정 + StarUpCostMaster 30단계
+    if (!st.builderData.__seedV5) {
+      const STARMAX = { 0: 10, 1: 10, 2: 20, 3: 30, 4: 30 }; // Rarity → maxStar
+      (st.builderData.UnitMaster || []).forEach(function (r) {
+        if (+r.MaxStar === 6 || r.MaxStar == null) {          // 구버전 기본값만 보정(사용자 수정분 보존)
+          r.MaxStar = STARMAX[+r.Rarity] != null ? STARMAX[+r.Rarity] : 10;
+          r.BaseStar = 0;
+        }
+      });
+      const su5 = st.builderData.StarUpCostMaster || [];
+      const lastTo = su5.length ? +su5[su5.length - 1].ToStar : 0;
+      if (su5.length <= 10 || lastTo <= 10) {                 // 구버전(2/10단계)만 30단계로 교체
+        st.builderData.StarUpCostMaster = seeds.StarUpCostMaster.map(function (x) { return Object.assign(S.blankRow("StarUpCostMaster"), x); });
+      }
+      st.builderData.__seedV5 = true;
     }
     // UnitLevelUpCostMaster: 비어있으면 곡선으로 자동 생성(레벨 2~60)
     if (st.builderData.UnitLevelUpCostMaster.length === 0) {
