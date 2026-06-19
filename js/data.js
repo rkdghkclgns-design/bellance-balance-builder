@@ -45,8 +45,8 @@
       element: "Fire",
       rarity: "SSR",
       maxLevel: 60,
-      baseStar: 4,     // SSR 시작 성급
-      maxStar: 6,
+      baseStar: 0,     // 0성 시작
+      maxStar: 10,     // 최대 성급 (starSystem 10단계 기준)
       base: { hp: 9000, atk: 950, def: 380, atkInterval: 1.4 }, // 1레벨 기준
       perLevel: { hp: 220, atk: 26, def: 9 }, // LevelUPDeltaStat (ClassType 평균)
       starMult: 250,   // 성급당 스탯 배수(Permille) → +25%/성급
@@ -56,10 +56,18 @@
     costs: {
       // gold(lv)=round(goldBase * lv^goldExp), exp 동일 패턴
       level: { goldBase: 40, goldExp: 2.0, expBase: 70, expExp: 2.0 },
-      // 성급업: 캐릭터 조각만 사용(골드 없음) · 성급별 차등 요구치
+      // 성급업: 캐릭터 조각만 사용(골드 0) · 0★→10★ 성급별 차등(조각 점증)
       star: [
-        { from: 4, to: 5, gold: 0, shard: 60 },
-        { from: 5, to: 6, gold: 0, shard: 120 },
+        { from: 0, to: 1, gold: 0, shard: 20 },
+        { from: 1, to: 2, gold: 0, shard: 30 },
+        { from: 2, to: 3, gold: 0, shard: 45 },
+        { from: 3, to: 4, gold: 0, shard: 60 },
+        { from: 4, to: 5, gold: 0, shard: 80 },
+        { from: 5, to: 6, gold: 0, shard: 105 },
+        { from: 6, to: 7, gold: 0, shard: 135 },
+        { from: 7, to: 8, gold: 0, shard: 170 },
+        { from: 8, to: 9, gold: 0, shard: 210 },
+        { from: 9, to: 10, gold: 0, shard: 260 },
       ],
       // 스킬 3종: 1→max, gold=goldBase*lv^exp, 스킬북=bookBase*(lv-1)^bookExp (구간별 차등)
       skills: {
@@ -79,6 +87,7 @@
     // ---- 일일 수급 ----
     income: {
       mode: "auto", // 'auto' | 'manual'
+      adMultiplier: 2, // 자동사냥·스테이지 클리어 보상 광고 시청 시 배수
       manual: { gold: 53000, exp: 30000, skillBook: 4.3, traitBook: 0.78, shard: 1.0 },
       // auto: 스태미나 → 던전 회차 → 드랍
       auto: {
@@ -369,6 +378,7 @@
     if (!loaded.unitDesign) loaded.unitDesign = JSON.parse(JSON.stringify(_pristine.unitDesign));
     if (!loaded.doctrine) loaded.doctrine = JSON.parse(JSON.stringify(_pristine.doctrine));
     if (loaded.doctrine && !loaded.doctrine.growth) loaded.doctrine.growth = JSON.parse(JSON.stringify(_pristine.doctrine.growth));
+    if (loaded.income && loaded.income.adMultiplier == null) loaded.income.adMultiplier = 2;
     if (loaded.unitDesign && loaded.unitDesign.grades) {
       ["R", "SR", "SSR"].forEach((g) => {
         if (loaded.unitDesign.grades[g] && loaded.unitDesign.grades[g].maxStar == null)

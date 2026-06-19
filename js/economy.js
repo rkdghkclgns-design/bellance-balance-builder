@@ -123,20 +123,24 @@
   }
 
   // ---- 일일 수급 ------------------------------------------------
-  function dailyIncome() {
+  // ad=true → 자동사냥(던전 드랍) + 스테이지 클리어 보상에 광고 시청 배수(adMultiplier) 적용
+  function dailyIncome(ad) {
     const s = Data.state;
     const inc = s.income;
+    const mult = ad ? (+inc.adMultiplier || 2) : 1;
     if (inc.mode === "manual") {
-      return { gold: +inc.manual.gold || 0, exp: +inc.manual.exp || 0, skillBook: +inc.manual.skillBook || 0, traitBook: +inc.manual.traitBook || 0, shard: +inc.manual.shard || 0 };
+      const m = inc.manual, out = {};
+      RES.forEach((r) => { out[r] = (+m[r] || 0) * mult; });
+      return out;
     }
-    // auto: 던전 회차 × 드랍 + 스테이지 고정
+    // auto: 던전 회차 × 드랍 + 스테이지 고정 (둘 다 광고 2배 대상)
     const a = inc.auto;
     const sum = { gold: 0, exp: 0, skillBook: 0, traitBook: 0, shard: 0 };
     a.dungeons.forEach((d) => {
       const runs = +a.runs[d.key] || 0;
-      RES.forEach((r) => { sum[r] += (d[r] || 0) * runs; });
+      RES.forEach((r) => { sum[r] += (d[r] || 0) * runs * mult; });
     });
-    RES.forEach((r) => { sum[r] += (a.stageDaily[r] || 0); });
+    RES.forEach((r) => { sum[r] += (a.stageDaily[r] || 0) * mult; });
     return sum;
   }
 
@@ -146,9 +150,9 @@
   }
 
   // ---- 6개월 역산 ----------------------------------------------
-  function daysToMax() {
+  function daysToMax(ad) {
     const { totals, breakdown } = totalCost();
-    const income = dailyIncome();
+    const income = dailyIncome(ad);
     const perRes = {};
     let bottleneck = null, maxDays = 0;
     RES.forEach((r) => {

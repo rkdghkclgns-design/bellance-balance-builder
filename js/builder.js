@@ -147,8 +147,16 @@
       {Id:6,Class:5,DeltaHp:160,DeltaAtk:32,DeltaDef:6},
     ],
     StarUpCostMaster: [
-      {Id:1,FromStar:4,ToStar:5,Gold:600000,Shard:60},
-      {Id:2,FromStar:5,ToStar:6,Gold:1200000,Shard:120},
+      {Id:1,FromStar:0,ToStar:1,Gold:0,Shard:20},
+      {Id:2,FromStar:1,ToStar:2,Gold:0,Shard:30},
+      {Id:3,FromStar:2,ToStar:3,Gold:0,Shard:45},
+      {Id:4,FromStar:3,ToStar:4,Gold:0,Shard:60},
+      {Id:5,FromStar:4,ToStar:5,Gold:0,Shard:80},
+      {Id:6,FromStar:5,ToStar:6,Gold:0,Shard:105},
+      {Id:7,FromStar:6,ToStar:7,Gold:0,Shard:135},
+      {Id:8,FromStar:7,ToStar:8,Gold:0,Shard:170},
+      {Id:9,FromStar:8,ToStar:9,Gold:0,Shard:210},
+      {Id:10,FromStar:9,ToStar:10,Gold:0,Shard:260},
     ],
     StarUpDeltaStatMaster: [
       {Id:1,Star:5,HpPermille:250,AtkPermille:250,DefPermille:250},
@@ -217,6 +225,15 @@
         st.builderData.StageMaster = stageRows;
       }
       st.builderData.__seedV3 = true;
+    }
+    // StarUpCostMaster: 구버전 기본 2행(4→5,5→6)만 있으면 0★→10★ 10단계 차등 시드로 교체(사용자 수정분은 보존)
+    if (!st.builderData.__seedV4) {
+      const su = st.builderData.StarUpCostMaster || [];
+      const isOldDefault = su.length === 2 && +su[0].FromStar === 4 && +su[1].FromStar === 5;
+      if (su.length === 0 || isOldDefault) {
+        st.builderData.StarUpCostMaster = seeds.StarUpCostMaster.map((x) => Object.assign(S.blankRow("StarUpCostMaster"), x));
+      }
+      st.builderData.__seedV4 = true;
     }
     // UnitLevelUpCostMaster: 비어있으면 곡선으로 자동 생성(레벨 2~60)
     if (st.builderData.UnitLevelUpCostMaster.length === 0) {

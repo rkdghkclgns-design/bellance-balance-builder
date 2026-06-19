@@ -213,7 +213,8 @@
   // ======================================================
   function economy() {
     const s = Data.state, t = s.targets;
-    const econ = Economy.daysToMax();
+    const econ = Economy.daysToMax();          // 광고 미시청(base)
+    const econAd = Economy.daysToMax(true);    // 광고 2배
     const { breakdown, totals } = Economy.totalCost();
 
     // 비용 합산표 — 골드 열 옆에 위에서부터 누적된 '누적 골드(최종 합산)' 열 추가
@@ -243,27 +244,41 @@
       <thead>${head}</thead><tbody>${body}</tbody>
       <tfoot>${foot}</tfoot></table>`;
 
-    // 자원별 소요일
+    // 재화 밸런스 — 광고 미시청 vs 광고 2배(자동사냥/스테이지 보상 ×adMult) 2분화 비교
+    const adMult = +s.income.adMultiplier || 2;
     const dRows = RES.map((r) => {
-      const p = econ.perRes[r];
-      if (p.need <= 0) return "";
-      const st = Economy.status(p.days, t.maxDays, t.daysTol);
+      const pB = econ.perRes[r], pA = econAd.perRes[r];
+      if (pB.need <= 0) return "";
+      const stB = Economy.status(pB.days, t.maxDays, t.daysTol);
+      const stA = Economy.status(pA.days, t.maxDays, t.daysTol);
       const isBn = econ.bottleneck === r;
-      const pct = Math.min(100, (p.days / (t.maxDays * 1.5)) * 100);
       return `<tr${isBn ? ' style="font-weight:700"' : ""}>
         <td class="l">${RKOR[r]}${isBn ? ' <span class="badge bad" style="font-size:9px">병목</span>' : ""}</td>
-        <td class="num">${fmtK(p.need)}</td>
-        <td class="num">${fmtK(p.rate)}/일</td>
-        <td class="num">${fmt(p.days)}</td>
-        <td><div class="bar ${st}"><i style="width:${pct}%"></i></div></td>
-        <td class="st-${st}">${st === "ok" ? "적정" : p.days > t.maxDays ? "느림" : "빠름"}</td>
+        <td class="num">${fmtK(pB.need)}</td>
+        <td class="num">${fmtK(pB.rate)}/일</td>
+        <td class="num st-${stB}">${fmt(pB.days)}</td>
+        <td class="num adcol">${fmtK(pA.rate)}/일</td>
+        <td class="num adcol st-${stA}">${fmt(pA.days)}</td>
       </tr>`;
     }).join("");
+    const incB = Economy.dailyIncome(false), incA = Economy.dailyIncome(true);
+    const stAllB = Economy.status(econ.days, t.maxDays, t.daysTol);
+    const stAllA = Economy.status(econAd.days, t.maxDays, t.daysTol);
     const daysTable = `<table class="grid">
-      <thead><tr><th class="l">자원</th><th class="num">총 필요</th><th class="num">일일 수급</th><th class="num">소요일</th><th>목표 대비</th><th>판정</th></tr></thead>
+      <thead>
+        <tr><th class="l" rowspan="2">자원</th><th class="num" rowspan="2">총 필요</th><th class="num" colspan="2">광고 미시청</th><th class="num adcol" colspan="2">광고 2배 (×${adMult})</th></tr>
+        <tr><th class="num">수급/일</th><th class="num">소요일</th><th class="num adcol">수급/일</th><th class="num adcol">소요일</th></tr>
+      </thead>
       <tbody>${dRows}</tbody>
-      <tfoot><tr><td class="l">종합(병목 기준)</td><td></td><td></td><td class="num total">${fmtMD(econ.days)}</td><td class="total" style="text-align:center">${fmt(econ.days)}일</td><td class="st-${Economy.status(econ.days, t.maxDays, t.daysTol)}">${Economy.status(econ.days, t.maxDays, t.daysTol) === "ok" ? "충족" : "교정필요"}</td></tr></tfoot>
-    </table>`;
+      <tfoot><tr>
+        <td class="l">종합(병목)</td><td></td>
+        <td class="num muted">${fmtK(incB[econ.bottleneck] || 0)}/일</td>
+        <td class="num total st-${stAllB}">${fmtMD(econ.days)}</td>
+        <td class="num muted adcol">${fmtK(incA[econAd.bottleneck] || 0)}/일</td>
+        <td class="num total adcol st-${stAllA}">${fmtMD(econAd.days)}</td>
+      </tr></tfoot>
+    </table>
+    <div class="hint">자동사냥 보상·스테이지 클리어 보상에 광고 시청 시 ×${adMult} 적용 — 두 시나리오의 소요일을 비교합니다. 종합 = 병목 자원 기준.</div>`;
 
     // 수급 에디터
     const inc = s.income;
@@ -314,7 +329,7 @@
             </span></h2>${incomeEditor}</div>
         </div>
         <div class="col">
-          <div class="section"><h2>자원별 소요일 & 6개월 역산 <span class="sub">병목 = 종합 소요일</span></h2>${daysTable}</div>
+          <div class="section"><h2>재화 밸런스 · 광고 2배 비교 <span class="sub">자동사냥/스테이지 보상 ×${adMult} · 병목 = 종합</span></h2>${daysTable}</div>
         </div>
       </div>
       <div class="section"><h2>AI 교정 <span class="sub">내장 AI</span></h2>${ai}</div>
@@ -355,29 +370,50 @@
     return wrap("", "");
   }
 
+  // 레벨별 필요 골드 막대 그래프(SVG)
+  function levelGoldChart(level) {
+    if (!level || !level.length) return '<div class="hint">레벨 데이터가 없습니다.</div>';
+    const W = 760, H = 220, ML = 56, MR = 14, MT = 16, MB = 34;
+    const PW = W - ML - MR, PH = H - MT - MB;
+    const maxG = Math.max(1, ...level.map((r) => +r.gold || 0)) * 1.05;
+    const n = level.length, bw = PW / n;
+    const Y = (g) => MT + PH - (g / maxG) * PH;
+    let grid = "";
+    for (let i = 0; i <= 4; i++) {
+      const py = MT + PH * i / 4, val = maxG * (1 - i / 4);
+      grid += `<line x1="${ML}" y1="${py.toFixed(1)}" x2="${W - MR}" y2="${py.toFixed(1)}" stroke="#e6eaee"/><text x="${ML - 6}" y="${(py + 3).toFixed(1)}" text-anchor="end" class="gc-ax">${fmtK(val)}</text>`;
+    }
+    const step = Math.max(1, Math.ceil(n / 8));
+    let xlab = "";
+    for (let i = 0; i < n; i += step) {
+      const r = level[i], cx = ML + i * bw + bw / 2;
+      xlab += `<text x="${cx.toFixed(1)}" y="${(MT + PH + 14).toFixed(1)}" text-anchor="middle" class="gc-ax">${r.lv - 1}→${r.lv}</text>`;
+    }
+    const bars = level.map((r, i) => {
+      const x = ML + i * bw + bw * 0.12, w = Math.max(0.8, bw * 0.76), y = Y(+r.gold || 0), h = Math.max(0, MT + PH - y);
+      return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" fill="#b7791f" opacity="0.85"><title>${r.lv - 1}→${r.lv}: ${fmtK(r.gold)} 골드</title></rect>`;
+    }).join("");
+    return `<svg viewBox="0 0 ${W} ${H}" class="gchart" preserveAspectRatio="xMidYMid meet">${grid}${bars}${xlab}<text x="4" y="13" class="gc-ax">필요 골드</text></svg>`;
+  }
+
   function costSteps() {
     const d = Economy.stepDetail();
     const s = Data.state;
 
-    // 1) 레벨업 골드 — 10레벨 구간별 차등 + 누적
-    const band = 10; const bands = [];
-    for (let lo = 2; lo <= s.unit.maxLevel; lo += band) {
-      const hi = Math.min(lo + band - 1, s.unit.maxLevel);
-      const rows = d.level.filter((r) => r.lv >= lo && r.lv <= hi);
-      if (!rows.length) continue;
-      const bg = rows.reduce((a, r) => a + r.gold, 0);
-      bands.push({ lo: lo, hi: hi, gold: bg, cum: rows[rows.length - 1].cumGold });
-    }
-    const lvBody = bands.map((b) => `<tr>
-      <td class="l">Lv.${b.lo}–${b.hi}</td>
-      <td class="num">${fmtK(b.gold)}</td>
-      <td class="num total">${fmtK(b.cum)}</td>
-      <td><div class="cbar"><i style="width:${Math.min(100, (b.cum / d.cum.gold) * 100)}%"></i></div></td>
+    // 1) 레벨업 골드 — 레벨별(1→2, 2→3 …) 차등 + 누적 (전체 노출, 스크롤)
+    const lvBody = d.level.map((r) => `<tr>
+      <td class="l">${r.lv - 1}→${r.lv}</td>
+      <td class="num">${fmtK(r.gold)}</td>
+      <td class="num total">${fmtK(r.cumGold)}</td>
+      <td><div class="cbar"><i style="width:${Math.min(100, d.cum.gold ? (r.cumGold / d.cum.gold) * 100 : 0)}%"></i></div></td>
     </tr>`).join("");
-    const lvTable = `<table class="grid">
-      <thead><tr><th class="l">레벨 구간</th><th class="num">구간 골드(차등)</th><th class="num">누적 골드</th><th>구간 최대 대비</th></tr></thead>
-      <tbody>${lvBody}</tbody>
-      <tfoot><tr><td class="l">최대 누적</td><td class="num">–</td><td class="num total">${fmtK(d.cum.gold)}</td><td class="l muted">Lv.${s.unit.maxLevel} 기준 · 골드만 소모</td></tr></tfoot></table>`;
+    const lvTable = `<div style="max-height:340px;overflow:auto;border:1px solid #e6eaee;border-radius:8px">
+      <table class="grid">
+      <thead><tr><th class="l">레벨</th><th class="num">필요 골드(차등)</th><th class="num">누적 골드</th><th>최대 대비</th></tr></thead>
+      <tbody>${lvBody || `<tr><td colspan="4" class="l muted">레벨 데이터 없음</td></tr>`}</tbody>
+      <tfoot><tr><td class="l">최대 누적</td><td class="num">–</td><td class="num total">${fmtK(d.cum.gold)}</td><td class="l muted">Lv.${s.unit.maxLevel} · 골드만</td></tr></tfoot></table></div>`;
+    const lvChart = `<div class="gcard">${levelGoldChart(d.level)}
+      <div class="gc-legend"><span class="gl2">■ 레벨별 필요 골드(차등)</span><span class="muted">막대 1개 = 한 레벨업 구간 · 좌→우 = 1레벨→만렙</span></div></div>`;
 
     // 2) 성급업 조각 — 성급별 차등 + 누적 (골드 미사용)
     const stBody = d.star.map((r) => `<tr>
@@ -403,14 +439,16 @@
       <thead>${skHead}</thead><tbody>${skBody}</tbody>
       <tfoot><tr><td class="l">합계 누적</td><td class="num muted" colspan="${lvls.length}">스킬 레벨업당 속성 스킬북 (구간별 증가)</td><td class="num total">${fmtK(d.cum.skillBook)}</td></tr></tfoot></table>`;
 
-    return `<div class="section"><h2>구간별 차등 요구치 · 구간 최대 누적 <span class="sub">레벨업 골드 · 성급업 조각 · 속성 스킬북</span></h2>
+    return `<div class="section"><h2>레벨별 차등 요구치 · 구간 최대 누적 <span class="sub">레벨별 골드(그래프) · 성급업 조각 · 속성 스킬북</span></h2>
       <div class="cumcards">
         <div class="cumcard gold"><div class="cl">구간 최대 누적 · 골드</div><div class="cv">${fmtK(d.cum.gold)}</div><div class="ch">레벨업 전용 (성급 미사용)</div></div>
         <div class="cumcard shard"><div class="cl">구간 최대 누적 · 캐릭터 조각</div><div class="cv">${fmtK(d.cum.shard)}</div><div class="ch">성급업 전용 (골드 미사용)</div></div>
         <div class="cumcard book"><div class="cl">구간 최대 누적 · 속성 스킬북</div><div class="cv">${fmtK(d.cum.skillBook)}</div><div class="ch">스킬 3종 합계</div></div>
       </div>
+      <div class="subh">레벨별 필요 골드 그래프</div>
+      ${lvChart}
       <div class="row">
-        <div class="col"><div class="subh">레벨업 골드</div>${lvTable}</div>
+        <div class="col"><div class="subh">레벨업 골드 (레벨별 1→2 …)</div>${lvTable}</div>
         <div class="col"><div class="subh">성급업 조각 <span class="muted">(골드 없음)</span></div>${stTable}</div>
       </div>
       <div class="subh" style="margin-top:12px">속성 스킬북 (스킬·레벨별 차등)</div>${skTable}</div>`;

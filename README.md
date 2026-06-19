@@ -22,7 +22,7 @@ https://rkdghkclgns-design.github.io/bellance-balance-builder/
 
 ## AI 사용
 - **Claude Design 환경**: `window.claude` 내장 AI 자동 사용(키 불필요)
-- **독립 실행**: 우측 상단에 Google Gemini API 키 입력 시 동작(브라우저 로컬 저장, 내장 AI가 있으면 무시)
+- **독립 실행 / 라이브 데모(GitHub Pages)**: 내장 AI가 없으므로, 우측 상단 입력란에 **Google Gemini API 키**를 넣어야 AI 진단·교정·데이터 생성이 동작합니다(브라우저 로컬 저장, 내장 AI가 있으면 무시). 그 외 기능(대시보드·육성경제·전투·밸런스 기조·데이터 빌더·CSV)은 키 없이 동작합니다.
 
 ## 기술
 순수 HTML / CSS / JS, 외부 라이브러리 없음. 상태는 `localStorage` + `IndexedDB` 백업.
