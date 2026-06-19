@@ -444,13 +444,17 @@ tr.vspace td { background: transparent; }
 .gc-legend .gl2 { color: #b7791f; font-weight: 600; }
 
 /* 곡선 생성기 / 열 설정 / 일괄 편집 패널 */
-.cgpanel { background: var(--panel); border: 1px solid var(--grid); border-radius: 10px; margin: 10px 0; overflow: hidden; max-width: 440px; }
+/* 우측 도킹 메뉴(밸런스 조절 영역 편의) */
+.cgpanel { background: var(--panel); border: 1px solid var(--grid); border-radius: 10px; overflow: hidden;
+  width: 332px; flex-shrink: 0; align-self: flex-start; position: sticky; top: 10px;
+  display: flex; flex-direction: column; max-height: 84vh; box-shadow: 0 2px 10px rgba(0,0,0,.06); }
+@media (max-width: 1120px) { .cgpanel { width: 290px; } }
 .cg-ptabs { display: flex; align-items: center; gap: 2px; background: #f3f5f7; border-bottom: 1px solid var(--grid); padding: 4px 6px; }
 .cg-ptab { border: 0; background: transparent; padding: 6px 10px; font: 600 12px var(--sans); color: var(--ink-2); cursor: pointer; border-radius: 6px; }
 .cg-ptab.active { background: var(--panel); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
 .cg-tgt { margin-left: auto; font: 600 10px var(--mono); color: #2563eb; background: #e8f0fe; padding: 2px 7px; border-radius: 10px; }
 .cg-close { border: 0; background: transparent; color: var(--ink-3); font-size: 14px; cursor: pointer; padding: 2px 6px; }
-.cg-pbody { padding: 12px 14px; }
+.cg-pbody { padding: 12px 14px; flex: 1; min-height: 0; overflow-y: auto; }
 .cg-desc { font-size: 11px; color: var(--ink-3); margin: 0 0 10px; line-height: 1.5; }
 .cg-lab { display: block; font-size: 11px; font-weight: 600; color: var(--ink-2); margin: 12px 0 5px; }
 .cg-sel, .cg-numfull { width: 100%; box-sizing: border-box; padding: 7px 9px; border: 1px solid var(--grid-strong); border-radius: 6px; font: 13px var(--sans); background: #fff; color: var(--ink); }

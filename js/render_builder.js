@@ -344,7 +344,6 @@
         </div>
         <div id="ai-flow" class="aigen-flow"></div>
       </div>
-      ${curvePanel()}
       <div class="bwrap">
         <div class="bnav">${nav()}</div>
         <div class="bmain">
@@ -352,6 +351,7 @@
           ${sim}
           ${grid()}
         </div>
+        ${curvePanel()}
       </div>
     </div>`;
   }
