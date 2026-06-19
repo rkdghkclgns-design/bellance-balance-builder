@@ -182,6 +182,106 @@
     return `<div class="baselinebar"><span class="bl-h">📌 저장된 기준</span>${items}</div>`;
   }
 
+  // ---- 곡선 생성기 / 열 설정 / 일괄 편집 패널 -----------------
+  var cg = {
+    open: false, tab: "curve",
+    type: "exp", base: 100, ratio: 1.35, count: 12, custom: "floor(base * pow(ratio, i))", col: "",
+    bcol: "", bop: "mul", bval: 2, bround: "none", bfrom: 1, bto: 0,
+    scol: "", sval: 0, sfind: "", srep: "",
+  };
+  function curveState() { return cg; }
+  function fnum(n) { return (Math.round(+n || 0)).toLocaleString("en-US"); }
+  function numCols(name) {
+    return Builder.columns(name).filter(function (c) {
+      if (Builder.isImported(name)) return true;
+      var t = String(c.type).toLowerCase();
+      return t.indexOf("int") === 0 || t.indexOf("float") === 0 || t.indexOf("double") === 0 || t.indexOf("decimal") === 0;
+    }).map(function (c) { return c.field; });
+  }
+  // 미리보기 라인 차트(SVG)
+  function curveChart(vals) {
+    if (!vals || !vals.length) return '<div class="cg-empty">행 수를 1 이상으로 설정하세요.</div>';
+    var W = 300, H = 96, ML = 2, MR = 2, MT = 12, MB = 2, PW = W - ML - MR, PH = H - MT - MB;
+    var max = Math.max.apply(null, vals), min = Math.min.apply(null, vals), span = (max - min) || 1, n = vals.length;
+    var X = function (i) { return ML + (n <= 1 ? PW / 2 : (i / (n - 1)) * PW); };
+    var Y = function (v) { return MT + PH - ((v - min) / span) * PH; };
+    var pts = vals.map(function (v, i) { return X(i).toFixed(1) + "," + Y(v).toFixed(1); }).join(" ");
+    var area = "M" + X(0).toFixed(1) + "," + (MT + PH) + " L" + pts.split(" ").join(" L") + " L" + X(n - 1).toFixed(1) + "," + (MT + PH) + " Z";
+    return '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" class="cgchart">'
+      + '<path d="' + area + '" fill="rgba(46,204,113,0.14)"/>'
+      + '<polyline points="' + pts + '" fill="none" stroke="#2ecc71" stroke-width="2" vector-effect="non-scaling-stroke"/>'
+      + '<circle cx="' + X(n - 1).toFixed(1) + '" cy="' + Y(vals[n - 1]).toFixed(1) + '" r="2.6" fill="#2ecc71"/>'
+      + '<text x="3" y="9" class="cg-axhi">' + fnum(max) + '</text>'
+      + '<text x="3" y="' + (MT + PH - 2) + '" class="cg-axlo">' + fnum(min) + '</text></svg>';
+  }
+  function curveChartHTML(vals) { return curveChart(vals); }
+  function sRow(key, label, val, min, max, step) {
+    return '<div class="cg-srow"><div class="cg-slh"><span>' + label + '</span>'
+      + '<input type="number" class="cg-num" id="cg-' + key + '-n" value="' + val + '" step="' + step + '"></div>'
+      + '<input type="range" class="cg-range" id="cg-' + key + '" min="' + min + '" max="' + max + '" step="' + step + '" value="' + Math.min(max, Math.max(min, val)) + '"></div>';
+  }
+  function colSel(id, cols, sel) {
+    return '<select class="cg-sel" id="' + id + '">' + (cols.length
+      ? cols.map(function (f) { return '<option value="' + esc(f) + '"' + (f === sel ? " selected" : "") + '>' + esc(f) + '</option>'; }).join("")
+      : '<option value="">(숫자 열 없음)</option>') + '</select>';
+  }
+  function curveTab(name, cols) {
+    if (cols.indexOf(cg.col) < 0) cg.col = cols[0] || "";
+    var tBtn = function (k, l) { return '<button class="cg-type' + (cg.type === k ? " active" : "") + '" data-cgtype="' + k + '">' + l + '</button>'; };
+    return '<p class="cg-desc">공식으로 수치 곡선을 생성합니다. 대상 열에 적용되며 행 수까지 한 번에 맞춥니다.</p>'
+      + '<label class="cg-lab">대상 열</label>' + colSel("cg-col", cols, cg.col)
+      + '<label class="cg-lab">곡선 유형</label><div class="cg-types">'
+      + tBtn("linear", "선형") + tBtn("exp", "지수") + tBtn("poly", "다항") + tBtn("log", "로그") + tBtn("custom", "커스텀") + '</div>'
+      + sRow("base", "기본값 (base)", cg.base, 1, 10000, 1)
+      + sRow("ratio", "증가율 (ratio)", cg.ratio, 1, 3, 0.01)
+      + sRow("count", "행 수 (count)", cg.count, 1, 200, 1)
+      + (cg.type === "custom"
+        ? '<textarea class="cg-formula" id="cg-custom" rows="2" spellcheck="false">' + esc(cg.custom) + '</textarea>'
+        : '<div class="cg-formula" id="cg-formula">' + esc(Builder.curveFormula(cg)) + '</div>')
+      + '<div class="cg-chartwrap" id="cg-chart">' + curveChart(Builder.curveValues(cg)) + '</div>'
+      + '<button class="cg-apply" id="cg-apply">곡선 적용</button>'
+      + '<div class="cg-vars"><div class="cg-vh">수식 변수</div>'
+      + '<div><code>i</code> 행 인덱스 (0부터)</div><div><code>lvl</code> i+1 (1부터)</div><div><code>prev</code> 같은 열 이전 행 값</div></div>';
+  }
+  function bulkTab(name, cols) {
+    if (cols.indexOf(cg.bcol) < 0) cg.bcol = cols[0] || "";
+    var oBtn = function (k, l) { return '<button class="cg-type' + (cg.bop === k ? " active" : "") + '" data-cgbop="' + k + '">' + l + '</button>'; };
+    var rBtn = function (k, l) { return '<button class="cg-type sm' + (cg.bround === k ? " active" : "") + '" data-cground="' + k + '">' + l + '</button>'; };
+    var list = Builder.rows(name), prev = list.slice(0, 5).map(function (r, i) {
+      var v = +r[cg.bcol] || 0, nv = cg.bop === "mul" ? v * cg.bval : cg.bop === "add" ? v + cg.bval : cg.bval;
+      if (cg.bround === "floor") nv = Math.floor(nv); else if (cg.bround === "ceil") nv = Math.ceil(nv); else if (cg.bround === "round") nv = Math.round(nv);
+      return '<div class="cg-pv"><span>#' + (i + 1) + '</span><b>' + fnum(v) + ' → ' + fnum(nv) + '</b></div>';
+    }).join("");
+    return '<p class="cg-desc">대상 열의 값을 한 번에 ×배수 / ＋증감 / ＝설정으로 변환합니다.</p>'
+      + '<label class="cg-lab">대상 열</label>' + colSel("cg-bcol", cols, cg.bcol)
+      + '<label class="cg-lab">연산</label><div class="cg-types">' + oBtn("mul", "× 배수") + oBtn("add", "＋ 증감") + oBtn("set", "＝ 설정") + '</div>'
+      + '<label class="cg-lab">값</label><input type="number" class="cg-sel cg-numfull" id="cg-bval" value="' + cg.bval + '" step="0.01">'
+      + '<label class="cg-lab">반올림</label><div class="cg-types">' + rBtn("none", "없음") + rBtn("floor", "내림") + rBtn("round", "반올림") + rBtn("ceil", "올림") + '</div>'
+      + '<label class="cg-lab">행 범위 (0 = 전체)</label><div class="cg-range2"><input type="number" class="cg-sel" id="cg-bfrom" value="' + cg.bfrom + '" min="1"><span>~</span><input type="number" class="cg-sel" id="cg-bto" value="' + cg.bto + '" min="0"></div>'
+      + '<div class="cg-prevbox">' + (prev || '<div class="cg-empty">행 없음</div>') + '</div>'
+      + '<button class="cg-apply" id="cg-bapply">일괄 적용</button>';
+  }
+  function columnTab(name, cols) {
+    if (cols.indexOf(cg.scol) < 0) cg.scol = cols[0] || "";
+    var info = Builder.columns(name).find(function (c) { return c.field === cg.scol; }) || {};
+    return '<p class="cg-desc">열 전체를 같은 값으로 채우거나, 특정 값을 찾아 바꿉니다.</p>'
+      + '<label class="cg-lab">대상 열</label>' + colSel("cg-scol", cols, cg.scol)
+      + '<div class="cg-info">타입 <b>' + esc(info.type || "-") + '</b> · 스코프 <b>' + esc(info.scope || "-") + '</b></div>'
+      + '<label class="cg-lab">전체 채우기 값</label><input type="number" class="cg-sel cg-numfull" id="cg-sval" value="' + cg.sval + '" step="0.01">'
+      + '<div class="cg-row2"><button class="cg-apply alt" id="cg-fill">전체 채우기</button><button class="cg-apply alt" id="cg-fillempty">빈 칸만</button></div>'
+      + '<label class="cg-lab">값 찾아 바꾸기</label><div class="cg-range2"><input type="text" class="cg-sel" id="cg-sfind" placeholder="찾을 값" value="' + esc(cg.sfind) + '"><span>→</span><input type="text" class="cg-sel" id="cg-srep" placeholder="바꿀 값" value="' + esc(cg.srep) + '"></div>'
+      + '<button class="cg-apply alt" id="cg-replace">찾아 바꾸기</button>';
+  }
+  function curvePanel() {
+    if (!cg.open) return "";
+    var name = selectedTable, cols = numCols(name);
+    var tab = function (k, l) { return '<button class="cg-ptab' + (cg.tab === k ? " active" : "") + '" data-cgtab="' + k + '">' + l + '</button>'; };
+    var body = cg.tab === "column" ? columnTab(name, cols) : cg.tab === "bulk" ? bulkTab(name, cols) : curveTab(name, cols);
+    return '<div class="cgpanel"><div class="cg-ptabs">' + tab("curve", "곡선 생성기") + tab("column", "열 설정") + tab("bulk", "일괄 편집")
+      + '<span class="cg-tgt" title="대상 테이블">' + esc(name) + '</span><button class="cg-close" id="cg-close" title="닫기">✕</button></div>'
+      + '<div class="cg-pbody">' + body + '</div></div>';
+  }
+
   // ---- 탭 전체 ------------------------------------------------
   function builder() {
     const S = window.Schema;
@@ -225,6 +325,7 @@
           <button class="btn" id="b-baseline" title="현재 데이터 테이블을 기준으로 저장">💾 기준 저장</button>
           <button class="btn" id="b-validate" title="중복 Id·참조 무결성 검증">🔍 검증</button>
           <button class="btn" id="b-auditlog" title="변경 이력(감사 로그)">📝 이력</button>
+          <button class="btn accent" id="b-curve" title="곡선 생성 · 일괄 편집">📈 곡선·일괄</button>
           <span class="bbar-sep"></span>
           <button class="btn" id="b-import-json">JSON 불러오기</button>
           <input type="file" id="b-json-file" accept=".json" style="display:none">
@@ -243,6 +344,7 @@
         </div>
         <div id="ai-flow" class="aigen-flow"></div>
       </div>
+      ${curvePanel()}
       <div class="bwrap">
         <div class="bnav">${nav()}</div>
         <div class="bmain">
@@ -255,5 +357,5 @@
   }
 
   window.Render = window.Render || {};
-  Object.assign(window.Render, { builder, setBuilderTable: setTable, getBuilderTable: getTable, setGridScroll, getGridScroll });
+  Object.assign(window.Render, { builder, setBuilderTable: setTable, getBuilderTable: getTable, setGridScroll, getGridScroll, curveState, curveChartHTML });
 })();

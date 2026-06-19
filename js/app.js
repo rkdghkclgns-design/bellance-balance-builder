@@ -323,6 +323,60 @@
     const aiCmd = document.getElementById("ai-cmd");
     if (aiCmd) { aiCmd.value = aigen.command || ""; aiCmd.addEventListener("keydown", (e) => { if (e.key === "Enter") aiStart(); }); }
     renderAiFlow();
+    bindCurvePanel();
+  }
+
+  // ---------- 곡선 생성기 / 일괄 편집 / 열 설정 패널 ----------
+  function bindCurvePanel() {
+    if (!Render.curveState) return;
+    const cg = Render.curveState();
+    const tbl = () => R.getBuilderTable();
+    // 토글 / 닫기
+    const tgl = document.getElementById("b-curve");
+    if (tgl) tgl.addEventListener("click", () => { cg.open = !cg.open; render(); });
+    const cls = document.getElementById("cg-close");
+    if (cls) cls.addEventListener("click", () => { cg.open = false; render(); });
+    if (!cg.open) return;
+    // 이산 클릭(서브탭·유형·연산·반올림) → 전체 렌더
+    const host = document.getElementById("sheet");
+    host.querySelectorAll("[data-cgtab]").forEach((b) => b.addEventListener("click", () => { cg.tab = b.dataset.cgtab; render(); }));
+    host.querySelectorAll("[data-cgtype]").forEach((b) => b.addEventListener("click", () => { cg.type = b.dataset.cgtype; render(); }));
+    host.querySelectorAll("[data-cgbop]").forEach((b) => b.addEventListener("click", () => { cg.bop = b.dataset.cgbop; render(); }));
+    host.querySelectorAll("[data-cground]").forEach((b) => b.addEventListener("click", () => { cg.bround = b.dataset.cground; render(); }));
+    // 대상 열 셀렉트(미리보기에 영향 없음 → 상태만 갱신)
+    const onSel = (id, key) => { const el = document.getElementById(id); if (el) el.addEventListener("change", () => { cg[key] = el.value; }); };
+    onSel("cg-col", "col"); onSel("cg-bcol", "bcol"); onSel("cg-scol", "scol");
+    // 곡선 슬라이더+숫자 동기화 + 라이브 미리보기(풀 렌더 없이 공식·차트만 갱신)
+    function preview() {
+      const f = document.getElementById("cg-formula"); if (f) f.textContent = Builder.curveFormula(cg);
+      const ch = document.getElementById("cg-chart"); if (ch) ch.innerHTML = Render.curveChartHTML(Builder.curveValues(cg));
+    }
+    function pair(key, min, max) {
+      const r = document.getElementById("cg-" + key), n = document.getElementById("cg-" + key + "-n");
+      const set = (raw, other) => { const v = parseFloat(raw); if (isNaN(v)) return; cg[key] = v; if (other === "r" && r) r.value = Math.min(max, Math.max(min, v)); if (other === "n" && n) n.value = v; preview(); };
+      if (r) r.addEventListener("input", () => set(r.value, "n"));
+      if (n) n.addEventListener("input", () => set(n.value, "r"));
+    }
+    pair("base", 1, 10000); pair("ratio", 1, 3); pair("count", 1, 200);
+    const cust = document.getElementById("cg-custom");
+    if (cust) cust.addEventListener("input", () => { cg.custom = cust.value; const ch = document.getElementById("cg-chart"); if (ch) ch.innerHTML = Render.curveChartHTML(Builder.curveValues(cg)); });
+    const apply = document.getElementById("cg-apply");
+    if (apply) apply.addEventListener("click", () => { const res = Builder.applyCurve(tbl(), cg.col, cg); if (res.ok) { toast(`곡선을 ${cg.col}에 적용했습니다 (${res.count}행)`); render(); } else toast(res.msg || "적용 실패"); });
+    // 일괄 편집
+    const num = (id, key, int) => { const el = document.getElementById(id); if (el) el.addEventListener("input", () => { cg[key] = int ? (parseInt(el.value, 10) || 0) : (parseFloat(el.value) || 0); }); };
+    num("cg-bval", "bval"); num("cg-bfrom", "bfrom", true); num("cg-bto", "bto", true);
+    const bAp = document.getElementById("cg-bapply");
+    if (bAp) bAp.addEventListener("click", () => { const res = Builder.bulkEdit(tbl(), cg.bcol, cg.bop, cg.bval, cg.bround, cg.bfrom, cg.bto); if (res.ok) { toast(`일괄 적용했습니다 (${res.count}행)`); render(); } else toast(res.msg || "적용 실패"); });
+    // 열 설정
+    num("cg-sval", "sval");
+    const sf = document.getElementById("cg-sfind"); if (sf) sf.addEventListener("input", () => cg.sfind = sf.value);
+    const sr = document.getElementById("cg-srep"); if (sr) sr.addEventListener("input", () => cg.srep = sr.value);
+    const fl = document.getElementById("cg-fill");
+    if (fl) fl.addEventListener("click", () => { const res = Builder.fillColumn(tbl(), cg.scol, cg.sval, false); if (res.ok) { toast(`${cg.scol} 전체 채움 (${res.count}행)`); render(); } });
+    const fle = document.getElementById("cg-fillempty");
+    if (fle) fle.addEventListener("click", () => { const res = Builder.fillColumn(tbl(), cg.scol, cg.sval, true); if (res.ok) { toast(`빈 칸 채움 (${res.count}행)`); render(); } });
+    const rp = document.getElementById("cg-replace");
+    if (rp) rp.addEventListener("click", () => { const res = Builder.replaceInColumn(tbl(), cg.scol, cg.sfind, cg.srep); if (res.ok) { toast(`찾아 바꿈 (${res.count}행)`); render(); } });
   }
 
   // ---------- AI 자연어 데이터 생성 (인터뷰 → 생성 → 미리보기 → 적용) ----------

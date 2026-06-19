@@ -992,8 +992,115 @@
     return { label: b.label, at: b.at, tables: out, tAdd: tAdd, tRem: tRem, tChg: tChg };
   }
 
+  // ============================================================
+  // 곡선 생성기 / 일괄 편집 / 열 설정 — 대상 열을 한 번에 채우거나 변환
+  // ============================================================
+  // 컬럼 타입에 맞춰 값 보정(불러온 테이블은 문자열 보존)
+  function coerceCell(table, field, value) {
+    if (isImported(table)) return String(value);
+    const col = columns(table).find((c) => c.field === field);
+    const t = (col ? col.type : "string").toLowerCase();
+    if (t.startsWith("int")) return parseInt(value, 10) || 0;
+    if (t.startsWith("float") || t.startsWith("double") || t.startsWith("decimal")) return parseFloat(value) || 0;
+    return value;
+  }
+  // 커스텀 수식 안전 평가(i·lvl·prev·base·ratio + 수학 함수)
+  function evalFormula(expr, i, lvl, prev, base, ratio) {
+    try {
+      const fn = new Function("i", "lvl", "prev", "base", "ratio", "floor", "ceil", "round", "pow", "sqrt", "abs", "min", "max", "log", "log2", "log10",
+        "return (" + String(expr) + ");");
+      const v = fn(i, lvl, prev, base, ratio, Math.floor, Math.ceil, Math.round, Math.pow, Math.sqrt, Math.abs, Math.min, Math.max, Math.log,
+        function (x) { return Math.log2(x); }, function (x) { return Math.log10(x); });
+      return Number.isFinite(v) ? v : 0;
+    } catch (e) { return 0; }
+  }
+  // 곡선 유형별 표시 수식
+  function curveFormula(c) {
+    const b = +c.base || 0, r = +c.ratio || 0;
+    switch (c.type) {
+      case "linear": return "floor(" + b + " + " + Math.round(b * (r - 1)) + " * i)";
+      case "poly":   return "floor(" + b + " * pow(lvl, " + r + "))";
+      case "log":    return "floor(" + b + " * (1 + " + (r - 1).toFixed(2) + " * log2(lvl)))";
+      case "custom": return c.custom || "floor(base * pow(ratio, i))";
+      default:       return "floor(" + b + " * pow(" + r + ", i))"; // exp
+    }
+  }
+  // 곡선 값 배열 산출
+  function curveValues(c) {
+    const out = [], n = Math.max(0, Math.min(2000, +c.count || 0)), b = +c.base || 0, r = +c.ratio || 0;
+    let prev = 0;
+    for (let i = 0; i < n; i++) {
+      const lvl = i + 1; let v;
+      if (c.type === "custom") v = evalFormula(c.custom, i, lvl, prev, b, r);
+      else if (c.type === "linear") v = b + b * (r - 1) * i;
+      else if (c.type === "poly")   v = b * Math.pow(lvl, r);
+      else if (c.type === "log")    v = b * (1 + (r - 1) * Math.log2(lvl));
+      else                          v = b * Math.pow(r, i); // exp
+      v = Math.floor(Number.isFinite(v) ? v : 0);
+      out.push(v); prev = v;
+    }
+    return out;
+  }
+  // 곡선을 대상 열에 적용(행 수까지 행을 만들어 채움)
+  function applyCurve(table, field, c) {
+    if (!field) return { ok: false, msg: "대상 열이 없습니다." };
+    ensure();
+    const list = rows(table);
+    const vals = curveValues(c);
+    for (let i = 0; i < vals.length; i++) {
+      if (!list[i]) {
+        const row = blankRowFor(table);
+        if ("Id" in row) row.Id = list.reduce((m, r) => Math.max(m, +r.Id || 0), 0) + 1;
+        list.push(row);
+      }
+      list[i][field] = coerceCell(table, field, vals[i]);
+    }
+    audit("edit", table, null, field, "(곡선)", vals.length + "행");
+    sync(table); Data.save();
+    return { ok: true, count: vals.length, field: field };
+  }
+  // 일괄 산술 편집(×/＋/＝ + 반올림, 행 범위)
+  function bulkEdit(table, field, op, val, round, fromRow, toRow) {
+    if (!field) return { ok: false, msg: "대상 열이 없습니다." };
+    const list = rows(table);
+    const from = Math.max(0, (+fromRow || 1) - 1);
+    const to = (+toRow > 0) ? Math.min(list.length, +toRow) : list.length;
+    let n = 0;
+    for (let i = from; i < to; i++) {
+      let v = +list[i][field] || 0;
+      if (op === "mul") v = v * (+val); else if (op === "add") v = v + (+val); else if (op === "set") v = +val;
+      if (round === "floor") v = Math.floor(v); else if (round === "ceil") v = Math.ceil(v); else if (round === "round") v = Math.round(v);
+      list[i][field] = coerceCell(table, field, v); n++;
+    }
+    audit("edit", table, null, field, "(일괄 " + op + ")", n + "행");
+    sync(table); Data.save();
+    return { ok: true, count: n };
+  }
+  // 열 전체(또는 빈 칸만) 같은 값으로 채우기
+  function fillColumn(table, field, value, emptyOnly) {
+    if (!field) return { ok: false };
+    const list = rows(table); let n = 0;
+    list.forEach((r) => {
+      if (emptyOnly && r[field] != null && String(r[field]) !== "") return;
+      r[field] = coerceCell(table, field, value); n++;
+    });
+    audit("edit", table, null, field, "(채우기)", n + "행");
+    sync(table); Data.save();
+    return { ok: true, count: n };
+  }
+  // 열 안에서 값 찾아 바꾸기(정확 일치)
+  function replaceInColumn(table, field, find, rep) {
+    if (!field) return { ok: false };
+    const list = rows(table); let n = 0;
+    list.forEach((r) => { if (String(r[field]) === String(find)) { r[field] = coerceCell(table, field, rep); n++; } });
+    audit("edit", table, null, field, "(찾아바꾸기)", n + "행");
+    sync(table); Data.save();
+    return { ok: true, count: n };
+  }
+
   window.Builder = {
     seeds, ensure, rows, columns, isImported, addRow, deleteRow, dupRow, moveRow, setCell,
+    curveFormula, curveValues, applyCurve, bulkEdit, fillColumn, replaceInColumn,
     refOptions, refLabel, tableCSV, downloadCSV, copyCSV, exportJSON, importJSON, importCSV, downloadAllZip,
     syncAll, isTable: (n) => !!S.tables[n], importedNames,
     patchCatalog, applyPatch, genContext, appendRows,
