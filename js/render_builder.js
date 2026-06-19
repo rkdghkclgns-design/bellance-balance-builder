@@ -187,7 +187,7 @@
     open: true, tab: "curve",
     type: "exp", base: 100, ratio: 1.35, count: 12, custom: "floor(base * pow(ratio, i))", col: "",
     bcol: "", bop: "mul", bval: 2, bround: "none", bfrom: 1, bto: 0,
-    scol: "", sval: 0, sfind: "", srep: "",
+    scol: "", sname: "", stype: "", sformula: "floor(120 * pow(1.35, i))", sdec: 0, _lastScol: null,
   };
   function curveState() { return cg; }
   function fnum(n) { return (Math.round(+n || 0)).toLocaleString("en-US"); }
@@ -262,15 +262,29 @@
       + '<button class="cg-apply" id="cg-bapply">일괄 적용</button>';
   }
   function columnTab(name, cols) {
-    if (cols.indexOf(cg.scol) < 0) cg.scol = cols[0] || "";
-    var info = Builder.columns(name).find(function (c) { return c.field === cg.scol; }) || {};
-    return '<p class="cg-desc">열 전체를 같은 값으로 채우거나, 특정 값을 찾아 바꿉니다.</p>'
+    if (cols.indexOf(cg.scol) < 0) { cg.scol = cols[0] || ""; cg._lastScol = null; }
+    var col = Builder.columns(name).find(function (c) { return c.field === cg.scol; }) || {};
+    if (cg._lastScol !== cg.scol) { cg.sname = cg.scol; cg.stype = String(col.type || "integer"); cg._lastScol = cg.scol; }
+    var typeRows = [["integer", "정수"], ["float", "실수"], ["string", "문자열"], ["bool", "불리언"], ["formula", "수식"]];
+    var typeOpts = typeRows.map(function (t) {
+      var sel = String(cg.stype).toLowerCase().indexOf(t[0]) === 0 ? " selected" : "";
+      return '<option value="' + t[0] + '"' + sel + '>' + t[1] + '</option>';
+    }).join("");
+    var chips = ['i', 'lvl', 'prev', 'n', 'pow( , )', 'floor( )', 'sqrt( )', 'colsum("열")'].map(function (c) {
+      return '<button class="cg-chip" data-cgchip="' + esc(c) + '">' + esc(c) + '</button>';
+    }).join("");
+    var decBtn = function (d) { return '<button class="cg-type sm' + (+cg.sdec === d ? " active" : "") + '" data-cgdec="' + d + '">' + d + '</button>'; };
+    var vals = Builder.colFormulaValues(name, cg.sformula, cg.sdec);
+    return '<p class="cg-desc">열을 수식으로 정의하거나 이름·타입·소수 자릿수를 조정합니다. (이름/타입은 이 테이블 전용)</p>'
       + '<label class="cg-lab">대상 열</label>' + colSel("cg-scol", cols, cg.scol)
-      + '<div class="cg-info">타입 <b>' + esc(info.type || "-") + '</b> · 스코프 <b>' + esc(info.scope || "-") + '</b></div>'
-      + '<label class="cg-lab">전체 채우기 값</label><input type="number" class="cg-sel cg-numfull" id="cg-sval" value="' + cg.sval + '" step="0.01">'
-      + '<div class="cg-row2"><button class="cg-apply alt" id="cg-fill">전체 채우기</button><button class="cg-apply alt" id="cg-fillempty">빈 칸만</button></div>'
-      + '<label class="cg-lab">값 찾아 바꾸기</label><div class="cg-range2"><input type="text" class="cg-sel" id="cg-sfind" placeholder="찾을 값" value="' + esc(cg.sfind) + '"><span>→</span><input type="text" class="cg-sel" id="cg-srep" placeholder="바꿀 값" value="' + esc(cg.srep) + '"></div>'
-      + '<button class="cg-apply alt" id="cg-replace">찾아 바꾸기</button>';
+      + '<label class="cg-lab">이름</label><input type="text" class="cg-sel cg-numfull" id="cg-sname" value="' + esc(cg.sname) + '">'
+      + '<label class="cg-lab">타입</label><select class="cg-sel" id="cg-stype">' + typeOpts + '</select>'
+      + '<label class="cg-lab">수식</label><textarea class="cg-formula" id="cg-sformula" rows="2" spellcheck="false">' + esc(cg.sformula) + '</textarea>'
+      + '<div class="cg-chips">' + chips + '</div>'
+      + '<label class="cg-lab">소수 자릿수</label><div class="cg-types">' + decBtn(0) + decBtn(1) + decBtn(2) + decBtn(3) + '</div>'
+      + '<div class="cg-chartwrap" id="cg-scolchart">' + curveChart(vals) + '</div>'
+      + '<button class="cg-apply" id="cg-applycol">수식 적용</button>'
+      + '<button class="cg-apply danger" id="cg-delcol" style="margin-top:8px">열 삭제</button>';
   }
   function curvePanel() {
     if (!cg.open) return "";

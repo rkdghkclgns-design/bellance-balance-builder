@@ -345,7 +345,7 @@
     host.querySelectorAll("[data-cground]").forEach((b) => b.addEventListener("click", () => { cg.bround = b.dataset.cground; render(); }));
     // 대상 열 셀렉트(미리보기에 영향 없음 → 상태만 갱신)
     const onSel = (id, key) => { const el = document.getElementById(id); if (el) el.addEventListener("change", () => { cg[key] = el.value; }); };
-    onSel("cg-col", "col"); onSel("cg-bcol", "bcol"); onSel("cg-scol", "scol");
+    onSel("cg-col", "col"); onSel("cg-bcol", "bcol");
     // 곡선 슬라이더+숫자 동기화 + 라이브 미리보기(풀 렌더 없이 공식·차트만 갱신)
     function preview() {
       const f = document.getElementById("cg-formula"); if (f) f.textContent = Builder.curveFormula(cg);
@@ -367,16 +367,33 @@
     num("cg-bval", "bval"); num("cg-bfrom", "bfrom", true); num("cg-bto", "bto", true);
     const bAp = document.getElementById("cg-bapply");
     if (bAp) bAp.addEventListener("click", () => { const res = Builder.bulkEdit(tbl(), cg.bcol, cg.bop, cg.bval, cg.bround, cg.bfrom, cg.bto); if (res.ok) { toast(`일괄 적용했습니다 (${res.count}행)`); render(); } else toast(res.msg || "적용 실패"); });
-    // 열 설정
-    num("cg-sval", "sval");
-    const sf = document.getElementById("cg-sfind"); if (sf) sf.addEventListener("input", () => cg.sfind = sf.value);
-    const sr = document.getElementById("cg-srep"); if (sr) sr.addEventListener("input", () => cg.srep = sr.value);
-    const fl = document.getElementById("cg-fill");
-    if (fl) fl.addEventListener("click", () => { const res = Builder.fillColumn(tbl(), cg.scol, cg.sval, false); if (res.ok) { toast(`${cg.scol} 전체 채움 (${res.count}행)`); render(); } });
-    const fle = document.getElementById("cg-fillempty");
-    if (fle) fle.addEventListener("click", () => { const res = Builder.fillColumn(tbl(), cg.scol, cg.sval, true); if (res.ok) { toast(`빈 칸 채움 (${res.count}행)`); render(); } });
-    const rp = document.getElementById("cg-replace");
-    if (rp) rp.addEventListener("click", () => { const res = Builder.replaceInColumn(tbl(), cg.scol, cg.sfind, cg.srep); if (res.ok) { toast(`찾아 바꿈 (${res.count}행)`); render(); } });
+    // 열 설정 — 컬럼 에디터(이름/타입/수식+칩/소수자릿수/적용/삭제)
+    const scolSel = document.getElementById("cg-scol");
+    if (scolSel) scolSel.addEventListener("change", () => { cg.scol = scolSel.value; cg._lastScol = null; render(); });
+    const sname = document.getElementById("cg-sname");
+    if (sname) sname.addEventListener("change", () => {
+      const res = Builder.renameColumn(tbl(), cg.scol, sname.value);
+      if (res.ok) { cg.scol = res.field; cg.sname = res.field; cg._lastScol = res.field; toast("열 이름 변경: " + res.field); render(); }
+      else { toast(res.msg || "이름 변경 실패"); sname.value = cg.scol; }
+    });
+    const stype = document.getElementById("cg-stype");
+    if (stype) stype.addEventListener("change", () => { cg.stype = stype.value; Builder.setColumnType(tbl(), cg.scol, stype.value); render(); });
+    const scolPrev = () => { const ch = document.getElementById("cg-scolchart"); if (ch) ch.innerHTML = Render.curveChartHTML(Builder.colFormulaValues(tbl(), cg.sformula, cg.sdec)); };
+    const sform = document.getElementById("cg-sformula");
+    if (sform) sform.addEventListener("input", () => { cg.sformula = sform.value; scolPrev(); });
+    host.querySelectorAll("[data-cgchip]").forEach((b) => b.addEventListener("click", () => {
+      const ta = document.getElementById("cg-sformula"); if (!ta) return;
+      const tok = b.dataset.cgchip;
+      const s = ta.selectionStart != null ? ta.selectionStart : ta.value.length;
+      const e = ta.selectionEnd != null ? ta.selectionEnd : ta.value.length;
+      ta.value = ta.value.slice(0, s) + tok + ta.value.slice(e); cg.sformula = ta.value;
+      ta.focus(); try { ta.selectionStart = ta.selectionEnd = s + tok.length; } catch (_) {} scolPrev();
+    }));
+    host.querySelectorAll("[data-cgdec]").forEach((b) => b.addEventListener("click", () => { cg.sdec = +b.dataset.cgdec; render(); }));
+    const applycol = document.getElementById("cg-applycol");
+    if (applycol) applycol.addEventListener("click", () => { const res = Builder.applyColumnFormula(tbl(), cg.scol, cg.sformula, cg.sdec); if (res.ok) { toast(`${cg.scol}에 수식 적용 (${res.count}행)`); render(); } else toast(res.msg || "적용 실패"); });
+    const delcol = document.getElementById("cg-delcol");
+    if (delcol) delcol.addEventListener("click", () => { if (cg.scol && confirm(`'${cg.scol}' 열을 삭제할까요?`)) { Builder.deleteColumn(tbl(), cg.scol); cg.scol = ""; cg._lastScol = null; render(); toast("열 삭제됨"); } });
   }
 
   // ---------- AI 자연어 데이터 생성 (인터뷰 → 생성 → 미리보기 → 적용) ----------

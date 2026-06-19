@@ -1098,9 +1098,73 @@
     return { ok: true, count: n };
   }
 
+  // ============================================================
+  // 열(컬럼) 수식 정의 / 이름·타입·삭제 — "열 설정" 컬럼 에디터
+  // ============================================================
+  // 행 단위 수식 평가 (i·lvl·prev·n + 수학함수 + colsum("열"))
+  function evalColFormula(expr, i, lvl, prev, n, colsum) {
+    try {
+      const fn = new Function("i", "lvl", "prev", "n", "floor", "ceil", "round", "pow", "sqrt", "abs", "min", "max", "log", "log2", "log10", "colsum",
+        "return (" + String(expr) + ");");
+      const v = fn(i, lvl, prev, n, Math.floor, Math.ceil, Math.round, Math.pow, Math.sqrt, Math.abs, Math.min, Math.max, Math.log,
+        function (x) { return Math.log2(x); }, function (x) { return Math.log10(x); }, colsum);
+      return Number.isFinite(v) ? v : 0;
+    } catch (e) { return 0; }
+  }
+  // 수식으로 열 값 배열 산출(소수 자릿수 반영) — 미리보기/적용 공용
+  function colFormulaValues(table, formula, decimals) {
+    const list = rows(table), n = list.length;
+    const cs = function (nm) { let s = 0; list.forEach(function (r) { s += +r[nm] || 0; }); return s; };
+    const d = Math.max(0, Math.min(6, +decimals || 0)), m = Math.pow(10, d);
+    const out = []; let prev = 0;
+    for (let i = 0; i < n; i++) {
+      let v = evalColFormula(formula, i, i + 1, prev, n, cs);
+      v = Math.round(v * m) / m;
+      out.push(v); prev = v;
+    }
+    return out;
+  }
+  function applyColumnFormula(table, field, formula, decimals) {
+    if (!field) return { ok: false, msg: "대상 열이 없습니다." };
+    const list = rows(table), vals = colFormulaValues(table, formula, decimals);
+    for (let i = 0; i < list.length; i++) list[i][field] = isImported(table) ? String(vals[i]) : vals[i];
+    audit("edit", table, null, field, "(수식)", list.length + "행");
+    sync(table); Data.save();
+    return { ok: true, count: list.length };
+  }
+  // 스키마 테이블도 열 편집이 되도록 builderCols를 구체화(이 시점부터 해당 테이블은 커스텀 열)
+  function ensureCols(table) {
+    const st = Data.state;
+    if (!st.builderCols) st.builderCols = {};
+    if (!st.builderCols[table]) st.builderCols[table] = columns(table).map(function (c) { return { field: c.field, type: c.type, scope: c.scope || "Server", ref: c.ref || null }; });
+    return st.builderCols[table];
+  }
+  function renameColumn(table, oldF, newF) {
+    newF = String(newF == null ? "" : newF).trim();
+    if (!newF || newF === oldF) return { ok: false };
+    const cols = ensureCols(table);
+    if (cols.some(function (c) { return c.field === newF; })) return { ok: false, msg: "이미 있는 열 이름" };
+    const col = cols.find(function (c) { return c.field === oldF; }); if (!col) return { ok: false };
+    col.field = newF;
+    rows(table).forEach(function (r) { r[newF] = r[oldF]; delete r[oldF]; });
+    sync(table); Data.save();
+    return { ok: true, field: newF };
+  }
+  function setColumnType(table, field, type) {
+    const col = ensureCols(table).find(function (c) { return c.field === field; }); if (!col) return { ok: false };
+    col.type = type; sync(table); Data.save(); return { ok: true };
+  }
+  function deleteColumn(table, field) {
+    const st = Data.state; ensureCols(table);
+    st.builderCols[table] = st.builderCols[table].filter(function (c) { return c.field !== field; });
+    rows(table).forEach(function (r) { delete r[field]; });
+    sync(table); Data.save(); return { ok: true };
+  }
+
   window.Builder = {
     seeds, ensure, rows, columns, isImported, addRow, deleteRow, dupRow, moveRow, setCell,
     curveFormula, curveValues, applyCurve, bulkEdit, fillColumn, replaceInColumn,
+    colFormulaValues, applyColumnFormula, renameColumn, setColumnType, deleteColumn,
     refOptions, refLabel, tableCSV, downloadCSV, copyCSV, exportJSON, importJSON, importCSV, downloadAllZip,
     syncAll, isTable: (n) => !!S.tables[n], importedNames,
     patchCatalog, applyPatch, genContext, appendRows,

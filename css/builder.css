@@ -486,3 +486,8 @@ tr.vspace td { background: transparent; }
 .cg-prevbox { margin: 10px 0; background: #f6f8f9; border-radius: 7px; padding: 8px 10px; }
 .cg-pv { display: flex; justify-content: space-between; font: 11px var(--mono); color: var(--ink-2); padding: 2px 0; }
 .cg-pv b { color: #1f8a4c; }
+.cg-chips { display: flex; flex-wrap: wrap; gap: 5px; margin: 8px 0 4px; }
+.cg-chip { border: 1px solid var(--grid-strong); background: #eef2f6; color: #2563eb; font: 600 11px var(--mono); padding: 3px 8px; border-radius: 6px; cursor: pointer; }
+.cg-chip:hover { background: #e0e8f2; }
+.cg-apply.danger { background: #c0392b; }
+.cg-apply.danger:hover { background: #a93226; }
