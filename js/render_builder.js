@@ -184,7 +184,7 @@
 
   // ---- 곡선 생성기 / 열 설정 / 일괄 편집 패널 -----------------
   var cg = {
-    open: true, tab: "curve",
+    open: false, tab: "curve", table: "",
     type: "exp", base: 100, ratio: 1.35, count: 12, custom: "floor(base * pow(ratio, i))", col: "",
     bcol: "", bop: "mul", bval: 2, bround: "none", bfrom: 1, bto: 0,
     scol: "", sname: "", stype: "", sformula: "floor(120 * pow(1.35, i))", sdec: 0, _lastScol: null,
@@ -286,13 +286,27 @@
       + '<button class="cg-apply" id="cg-applycol">수식 적용</button>'
       + '<button class="cg-apply danger" id="cg-delcol" style="margin-top:8px">열 삭제</button>';
   }
+  function allTables() {
+    var S = window.Schema;
+    return Object.keys(S.tables).concat(Builder.importedNames());
+  }
   function curvePanel() {
     if (!cg.open) return "";
-    var name = selectedTable, cols = numCols(name);
+    var tables = allTables();
+    if (!cg.table || tables.indexOf(cg.table) < 0) {
+      cg.table = tables.indexOf(selectedTable) >= 0 ? selectedTable : (tables[0] || "");
+    }
+    var name = cg.table, cols = numCols(name);
+    var tsel = '<select class="cg-sel cg-tablesel" id="cg-table">' + tables.map(function (t) {
+      return '<option value="' + esc(t) + '"' + (t === name ? " selected" : "") + '>' + esc(t) + (Builder.isImported(t) ? " · 불러옴" : "") + '</option>';
+    }).join("") + '</select>';
     var tab = function (k, l) { return '<button class="cg-ptab' + (cg.tab === k ? " active" : "") + '" data-cgtab="' + k + '">' + l + '</button>'; };
     var body = cg.tab === "column" ? columnTab(name, cols) : cg.tab === "bulk" ? bulkTab(name, cols) : curveTab(name, cols);
-    return '<div class="cgpanel"><div class="cg-ptabs">' + tab("curve", "곡선 생성기") + tab("column", "열 설정") + tab("bulk", "일괄 편집")
-      + '<span class="cg-tgt" title="대상 테이블">' + esc(name) + '</span><button class="cg-close" id="cg-close" title="닫기">✕</button></div>'
+    return '<div class="cgpanel">'
+      + '<div class="cg-ptabs">' + tab("curve", "곡선 생성기") + tab("column", "열 설정") + tab("bulk", "일괄 편집")
+      + '<button class="cg-close" id="cg-close" title="닫기">✕</button></div>'
+      + '<div class="cg-thead"><span class="cg-tlab">대상 테이블</span>' + tsel + '</div>'
+      + '<p class="cg-tnote">선택한 테이블 값을 조정하면 <b>모든 탭(대시보드·육성경제·마스터·유닛설계·밸런스)</b>에 일괄 반영됩니다.</p>'
       + '<div class="cg-pbody">' + body + '</div></div>';
   }
 
@@ -365,11 +379,10 @@
           ${sim}
           ${grid()}
         </div>
-        ${curvePanel()}
       </div>
     </div>`;
   }
 
   window.Render = window.Render || {};
-  Object.assign(window.Render, { builder, setBuilderTable: setTable, getBuilderTable: getTable, setGridScroll, getGridScroll, curveState, curveChartHTML });
+  Object.assign(window.Render, { builder, setBuilderTable: setTable, getBuilderTable: getTable, setGridScroll, getGridScroll, curveState, curveChartHTML, curvePanel });
 })();

@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&family=Roboto+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/builder.css?v=8">
+<link rel="stylesheet" href="css/builder.css?v=9">
 </head>
 <body>
 
@@ -20,6 +20,7 @@
     <button class="tbtn" id="btn-import">CSV 불러오기</button>
     <button class="tbtn" id="btn-export">스냅샷 내보내기</button>
     <button class="tbtn" id="btn-reset">초기화</button>
+    <button class="tbtn" id="btn-cgdock" title="그래프로 값을 조정해 모든 탭에 일괄 적용">📈 밸런스 조정</button>
     <span class="aibadge" title="Claude Design 환경에서는 내장 AI를 자동 사용하고, 독립 실행 시 아래 Gemini 키로 폴백합니다"><span class="dot on"></span>AI 내장 우선 · 키 폴백</span>
     <!-- 독립 실행(file:// · 일반 서버) 폴백용 — 내장 AI(window.claude)가 있으면 이 값은 무시됨 -->
     <select id="model" class="tbtn" title="폴백 시 사용할 Gemini 모델" style="appearance:auto">
@@ -68,19 +69,22 @@
 
   <div class="toast" id="toast"></div>
 
-  <script src="js/data.js?v=8"></script>
-  <script src="js/schema.js?v=8"></script>
-  <script src="js/builder.js?v=8"></script>
-  <script src="js/doctrine.js?v=8"></script>
-  <script src="js/economy.js?v=8"></script>
-  <script src="js/combat.js?v=8"></script>
-  <script src="js/units.js?v=8"></script>
-  <script src="js/gemini.js?v=8"></script>
-  <script src="js/render.js?v=8"></script>
-  <script src="js/render2.js?v=8"></script>
-  <script src="js/render_units.js?v=8"></script>
-  <script src="js/render_builder.js?v=8"></script>
-  <script src="js/render_doctrine.js?v=8"></script>
-  <script src="js/app.js?v=8"></script>
+  <!-- 전역 밸런스 조정 패널(곡선·일괄·열) — 모든 탭에서 사용 -->
+  <div id="cgdock"></div>
+
+  <script src="js/data.js?v=9"></script>
+  <script src="js/schema.js?v=9"></script>
+  <script src="js/builder.js?v=9"></script>
+  <script src="js/doctrine.js?v=9"></script>
+  <script src="js/economy.js?v=9"></script>
+  <script src="js/combat.js?v=9"></script>
+  <script src="js/units.js?v=9"></script>
+  <script src="js/gemini.js?v=9"></script>
+  <script src="js/render.js?v=9"></script>
+  <script src="js/render2.js?v=9"></script>
+  <script src="js/render_units.js?v=9"></script>
+  <script src="js/render_builder.js?v=9"></script>
+  <script src="js/render_doctrine.js?v=9"></script>
+  <script src="js/app.js?v=9"></script>
 </body>
 </html>

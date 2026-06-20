@@ -45,6 +45,19 @@
     else if (currentTab === "builder")   host.innerHTML = R.builder();
     bindSheet();
     renderTabs();
+    refreshDock();
+  }
+
+  // 전역 조정 패널(곡선·일괄·열) — 모든 탭에서 #cgdock 에 렌더
+  function refreshDock() {
+    const dock = document.getElementById("cgdock");
+    if (!dock || !Render.curvePanel) return;
+    const cg = Render.curveState ? Render.curveState() : null;
+    dock.innerHTML = Render.curvePanel();
+    document.body.classList.toggle("cg-open", !!(cg && cg.open));
+    const btn = document.getElementById("btn-cgdock");
+    if (btn) btn.classList.toggle("active", !!(cg && cg.open));
+    bindCurvePanel();
   }
 
   function renderTabs() {
@@ -323,26 +336,30 @@
     const aiCmd = document.getElementById("ai-cmd");
     if (aiCmd) { aiCmd.value = aigen.command || ""; aiCmd.addEventListener("keydown", (e) => { if (e.key === "Enter") aiStart(); }); }
     renderAiFlow();
-    bindCurvePanel();
+    // 빌더 툴바의 '📈 곡선·일괄' 토글 → 전역 조정 패널 열고 닫기
+    const cv = document.getElementById("b-curve");
+    if (cv) cv.addEventListener("click", () => { const cg = Render.curveState(); cg.open = !cg.open; refreshDock(); });
   }
 
-  // ---------- 곡선 생성기 / 일괄 편집 / 열 설정 패널 ----------
+  // ---------- 곡선 생성기 / 일괄 편집 / 열 설정 패널 (전역 #cgdock) ----------
   function bindCurvePanel() {
     if (!Render.curveState) return;
     const cg = Render.curveState();
-    const tbl = () => R.getBuilderTable();
-    // 토글 / 닫기
-    const tgl = document.getElementById("b-curve");
-    if (tgl) tgl.addEventListener("click", () => { cg.open = !cg.open; render(); });
+    const tbl = () => cg.table || R.getBuilderTable();
+    // 닫기
     const cls = document.getElementById("cg-close");
-    if (cls) cls.addEventListener("click", () => { cg.open = false; render(); });
+    if (cls) cls.addEventListener("click", () => { cg.open = false; refreshDock(); });
     if (!cg.open) return;
-    // 이산 클릭(서브탭·유형·연산·반올림) → 전체 렌더
-    const host = document.getElementById("sheet");
-    host.querySelectorAll("[data-cgtab]").forEach((b) => b.addEventListener("click", () => { cg.tab = b.dataset.cgtab; render(); }));
-    host.querySelectorAll("[data-cgtype]").forEach((b) => b.addEventListener("click", () => { cg.type = b.dataset.cgtype; render(); }));
-    host.querySelectorAll("[data-cgbop]").forEach((b) => b.addEventListener("click", () => { cg.bop = b.dataset.cgbop; render(); }));
-    host.querySelectorAll("[data-cground]").forEach((b) => b.addEventListener("click", () => { cg.bround = b.dataset.cground; render(); }));
+    const host = document.getElementById("cgdock");
+    if (!host) return;
+    // 대상 테이블 선택 → 패널만 갱신(열 선택은 새 테이블 기준으로 자동 보정)
+    const tsel = document.getElementById("cg-table");
+    if (tsel) tsel.addEventListener("change", () => { cg.table = tsel.value; refreshDock(); });
+    // 이산 클릭(서브탭·유형·연산·반올림) → 패널만 갱신
+    host.querySelectorAll("[data-cgtab]").forEach((b) => b.addEventListener("click", () => { cg.tab = b.dataset.cgtab; refreshDock(); }));
+    host.querySelectorAll("[data-cgtype]").forEach((b) => b.addEventListener("click", () => { cg.type = b.dataset.cgtype; refreshDock(); }));
+    host.querySelectorAll("[data-cgbop]").forEach((b) => b.addEventListener("click", () => { cg.bop = b.dataset.cgbop; refreshDock(); }));
+    host.querySelectorAll("[data-cground]").forEach((b) => b.addEventListener("click", () => { cg.bround = b.dataset.cground; refreshDock(); }));
     // 대상 열 셀렉트(미리보기에 영향 없음 → 상태만 갱신)
     const onSel = (id, key) => { const el = document.getElementById(id); if (el) el.addEventListener("change", () => { cg[key] = el.value; }); };
     onSel("cg-col", "col"); onSel("cg-bcol", "bcol");
@@ -369,7 +386,7 @@
     if (bAp) bAp.addEventListener("click", () => { const res = Builder.bulkEdit(tbl(), cg.bcol, cg.bop, cg.bval, cg.bround, cg.bfrom, cg.bto); if (res.ok) { toast(`일괄 적용했습니다 (${res.count}행)`); render(); } else toast(res.msg || "적용 실패"); });
     // 열 설정 — 컬럼 에디터(이름/타입/수식+칩/소수자릿수/적용/삭제)
     const scolSel = document.getElementById("cg-scol");
-    if (scolSel) scolSel.addEventListener("change", () => { cg.scol = scolSel.value; cg._lastScol = null; render(); });
+    if (scolSel) scolSel.addEventListener("change", () => { cg.scol = scolSel.value; cg._lastScol = null; refreshDock(); });
     const sname = document.getElementById("cg-sname");
     if (sname) sname.addEventListener("change", () => {
       const res = Builder.renameColumn(tbl(), cg.scol, sname.value);
@@ -389,7 +406,7 @@
       ta.value = ta.value.slice(0, s) + tok + ta.value.slice(e); cg.sformula = ta.value;
       ta.focus(); try { ta.selectionStart = ta.selectionEnd = s + tok.length; } catch (_) {} scolPrev();
     }));
-    host.querySelectorAll("[data-cgdec]").forEach((b) => b.addEventListener("click", () => { cg.sdec = +b.dataset.cgdec; render(); }));
+    host.querySelectorAll("[data-cgdec]").forEach((b) => b.addEventListener("click", () => { cg.sdec = +b.dataset.cgdec; refreshDock(); }));
     const applycol = document.getElementById("cg-applycol");
     if (applycol) applycol.addEventListener("click", () => { const res = Builder.applyColumnFormula(tbl(), cg.scol, cg.sformula, cg.sdec); if (res.ok) { toast(`${cg.scol}에 수식 적용 (${res.count}행)`); render(); } else toast(res.msg || "적용 실패"); });
     const delcol = document.getElementById("cg-delcol");
@@ -690,6 +707,9 @@
     });
     Builder.ensure(); Builder.syncAll();
     bindTabs(); bindTargets(); bindKey(); bindImport(); bindMisc();
+    // 전역 '밸런스 조정' 토글(상단 툴바) — 정적 버튼이므로 1회만 바인딩
+    const cgBtn = document.getElementById("btn-cgdock");
+    if (cgBtn) cgBtn.addEventListener("click", () => { const cg = Render.curveState && Render.curveState(); if (!cg) return; cg.open = !cg.open; refreshDock(); });
     document.addEventListener("click", onApplyClick);
     // 목표바 값 주입
     const t = Data.state.targets;
