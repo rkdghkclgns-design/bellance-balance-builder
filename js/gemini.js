@@ -42,30 +42,44 @@
 
     // ── 듀얼 폴백 ───────────────────────────────────────────────
     // 1순위: 내장 AI(Claude) — Claude Design / claude.ai 환경에서 제공(키 불필요)
-    if (window.claude && typeof window.claude.complete === "function") {
-      const text = await window.claude.complete(prompt);
-      if (!text) throw new Error("빈 응답을 받았습니다.");
-      return text;
-    }
-    // 2순위(폴백): Google Gemini API 키 — 독립 실행(file:// · 일반 서버) 환경
     const key = getKey();
+    if (window.claude && typeof window.claude.complete === "function") {
+      try {
+        const ctext = await window.claude.complete(prompt);
+        if (ctext) return ctext;
+        // 내장 AI가 빈 응답 → 키가 있으면 Gemini로 폴백, 없으면 명확한 오류
+        if (!key) throw new Error("내장 AI가 빈 응답을 반환했습니다. 잠시 후 다시 시도해 주세요.");
+      } catch (e) {
+        if (!key) throw e;   // 폴백 불가 → 그대로 전달
+        // 키가 있으면 아래 Gemini 폴백으로 진행
+      }
+    }
+    // 2순위(폴백): Google Gemini API 키 — 독립 실행(file:// · GitHub Pages 등) 환경
     if (!key) throw new Error("내장 AI를 쓸 수 없는 환경입니다. 우측 상단에 Google Gemini API 키를 입력하면 AI 기능이 동작합니다.");
     const model = getModel();
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`;
-    const body = {
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: Object.assign({ temperature: 0.4, maxOutputTokens: 2048 }, (opts && opts.gen) || {}),
-    };
+    // 사고형(2.5) 모델은 maxOutputTokens 안에서 thinking에 토큰을 소모하므로 본문 확보를 위해 충분히 크게.
+    const gen = Object.assign({ temperature: 0.4, maxOutputTokens: 8192 }, (opts && opts.gen) || {});
+    // 2.5-flash 계열은 thinking을 꺼 본문 토큰을 확보(2.5-pro·2.0·1.5에는 미적용 — 미지원 모델에 보내면 400).
+    if (/^gemini-2\.5-flash/.test(model)) gen.thinkingConfig = { thinkingBudget: 0 };
+    const body = { contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: gen };
     const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     if (!res.ok) {
       let msg = `${res.status} ${res.statusText}`;
-      try { const j = await res.json(); if (j.error && j.error.message) msg = j.error.message; } catch (e) {}
+      try { const je = await res.json(); if (je.error && je.error.message) msg = je.error.message; } catch (e) {}
       throw new Error("Gemini 오류: " + msg);
     }
     const j = await res.json();
-    const parts = (((j.candidates || [])[0] || {}).content || {}).parts || [];
+    const cand = (j.candidates || [])[0] || {};
+    const parts = (cand.content || {}).parts || [];
     const text = parts.map((p) => p.text || "").join("");
-    if (!text) throw new Error("빈 응답을 받았습니다.");
+    if (!text) {
+      const fr = cand.finishReason || (j.promptFeedback && j.promptFeedback.blockReason) || "UNKNOWN";
+      const hint = fr === "MAX_TOKENS"
+        ? " — 사고형 모델이 토큰을 모두 사용했을 수 있습니다. 모델을 'gemini-2.5-flash' 또는 'gemini-2.0-flash'로 바꿔 다시 시도하세요."
+        : ((fr === "SAFETY" || fr === "PROHIBITED_CONTENT") ? " — 콘텐츠 안전 필터로 차단되었습니다." : "");
+      throw new Error("빈 응답을 받았습니다 (사유: " + fr + ")" + hint);
+    }
     return text;
   }
 
@@ -136,7 +150,7 @@
       "구성: ## 종합 판정 / ## 육성 경제 / ## 전투 시간 / ## 우선 조치(번호 목록).",
       "수치를 근거로 간결하게. 마크다운으로만 작성.",
     ].join("\n");
-    return await call(prompt, { gen: { temperature: 0.5, maxOutputTokens: 1600 } });
+    return await call(prompt, { gen: { temperature: 0.5, maxOutputTokens: 8192 } });
   }
 
   // ---- 자연어 데이터 생성: 인터뷰 → 생성 ----
