@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&family=Roboto+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/builder.css?v=10">
+<link rel="stylesheet" href="css/builder.css?v=11">
 </head>
 <body>
 
@@ -24,13 +24,9 @@
     <span class="aibadge" title="Claude Design 환경에서는 내장 AI를 자동 사용하고, 독립 실행 시 아래 Gemini 키로 폴백합니다"><span class="dot on"></span>AI 내장 우선 · 키 폴백</span>
     <!-- 독립 실행(file:// · 일반 서버) 폴백용 — 내장 AI(window.claude)가 있으면 이 값은 무시됨 -->
     <select id="model" class="tbtn" title="폴백 시 사용할 Gemini 모델" style="appearance:auto">
-      <option value="gemini-2.5-pro">gemini-2.5-pro</option>
-      <option value="gemini-2.5-flash">gemini-2.5-flash</option>
+      <option value="gemini-2.5-flash">gemini-2.5-flash (권장)</option>
       <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite</option>
-      <option value="gemini-2.0-flash">gemini-2.0-flash</option>
-      <option value="gemini-2.0-flash-lite">gemini-2.0-flash-lite</option>
-      <option value="gemini-1.5-flash">gemini-1.5-flash</option>
-      <option value="gemini-1.5-pro">gemini-1.5-pro</option>
+      <option value="gemini-2.5-pro">gemini-2.5-pro</option>
     </select>
     <div class="keypill" title="독립 실행 시 사용할 Google Gemini API 키 — 내장 AI가 있으면 무시됩니다"><span class="dot" id="keydot"></span><input id="apikey" type="password" placeholder="Gemini API 키 (폴백용·로컬 저장)" autocomplete="off"></div>
   </div>
@@ -75,19 +71,19 @@
   <!-- 전역 밸런스 조정 패널(곡선·일괄·열) — 모든 탭에서 사용 -->
   <div id="cgdock"></div>
 
-  <script src="js/data.js?v=10"></script>
-  <script src="js/schema.js?v=10"></script>
-  <script src="js/builder.js?v=10"></script>
-  <script src="js/doctrine.js?v=10"></script>
-  <script src="js/economy.js?v=10"></script>
-  <script src="js/combat.js?v=10"></script>
-  <script src="js/units.js?v=10"></script>
-  <script src="js/gemini.js?v=10"></script>
-  <script src="js/render.js?v=10"></script>
-  <script src="js/render2.js?v=10"></script>
-  <script src="js/render_units.js?v=10"></script>
-  <script src="js/render_builder.js?v=10"></script>
-  <script src="js/render_doctrine.js?v=10"></script>
-  <script src="js/app.js?v=10"></script>
+  <script src="js/data.js?v=11"></script>
+  <script src="js/schema.js?v=11"></script>
+  <script src="js/builder.js?v=11"></script>
+  <script src="js/doctrine.js?v=11"></script>
+  <script src="js/economy.js?v=11"></script>
+  <script src="js/combat.js?v=11"></script>
+  <script src="js/units.js?v=11"></script>
+  <script src="js/gemini.js?v=11"></script>
+  <script src="js/render.js?v=11"></script>
+  <script src="js/render2.js?v=11"></script>
+  <script src="js/render_units.js?v=11"></script>
+  <script src="js/render_builder.js?v=11"></script>
+  <script src="js/render_doctrine.js?v=11"></script>
+  <script src="js/app.js?v=11"></script>
 </body>
 </html>

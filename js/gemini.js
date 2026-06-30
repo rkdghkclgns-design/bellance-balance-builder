@@ -8,11 +8,15 @@
 
   const LS_KEY = "pa_gemini_key";
   const LS_MODEL = "pa_gemini_model";
+  // 현재 사용 가능한 모델만 허용(구버전 gemini-1.5 / 2.0 계열은 Google에서 은퇴 → 제외·자동 보정)
+  const DEFAULT_MODEL = "gemini-2.5-flash";
+  const AVAILABLE_MODELS = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.5-pro"];
 
   function getKey() { try { return localStorage.getItem(LS_KEY) || ""; } catch (e) { return ""; } }
   function setKey(k) { try { localStorage.setItem(LS_KEY, k || ""); } catch (e) {} }
-  function getModel() { try { return localStorage.getItem(LS_MODEL) || "gemini-2.0-flash"; } catch (e) { return "gemini-2.0-flash"; } }
-  function setModel(m) { try { localStorage.setItem(LS_MODEL, m || "gemini-2.0-flash"); } catch (e) {} }
+  // 저장값이 없거나 은퇴 모델이면 기본값으로 자동 보정(기존 'gemini-2.0-flash' 저장 사용자도 치유)
+  function getModel() { try { const m = localStorage.getItem(LS_MODEL); return (m && AVAILABLE_MODELS.indexOf(m) >= 0) ? m : DEFAULT_MODEL; } catch (e) { return DEFAULT_MODEL; } }
+  function setModel(m) { try { localStorage.setItem(LS_MODEL, (m && AVAILABLE_MODELS.indexOf(m) >= 0) ? m : DEFAULT_MODEL); } catch (e) {} }
 
   async function call(prompt, opts) {
     // ── [주석처리] 기존 Google Gemini API 키 방식 — 코드 보존(미사용) ──────────
