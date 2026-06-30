@@ -290,23 +290,30 @@
     var S = window.Schema;
     return Object.keys(S.tables).concat(Builder.importedNames());
   }
+  function aiTab() {
+    return '<p class="cg-desc">현재 스냅샷(육성·전투)을 분석해 목표 이탈을 교정하는 정량 제안을 생성합니다. 적용하면 관련 CSV에 반영되어 <b>모든 탭</b>에 즉시 갱신됩니다.</p>'
+      + '<button class="cg-apply" id="cg-ai-go">🤖 교정안 받기</button>'
+      + '<div id="cg-ai-out" class="cg-aiout"></div>';
+  }
   function curvePanel() {
     if (!cg.open) return "";
     var tables = allTables();
     if (!cg.table || tables.indexOf(cg.table) < 0) {
       cg.table = tables.indexOf(selectedTable) >= 0 ? selectedTable : (tables[0] || "");
     }
+    var isAI = cg.tab === "ai";
     var name = cg.table, cols = numCols(name);
     var tsel = '<select class="cg-sel cg-tablesel" id="cg-table">' + tables.map(function (t) {
       return '<option value="' + esc(t) + '"' + (t === name ? " selected" : "") + '>' + esc(t) + (Builder.isImported(t) ? " · 불러옴" : "") + '</option>';
     }).join("") + '</select>';
     var tab = function (k, l) { return '<button class="cg-ptab' + (cg.tab === k ? " active" : "") + '" data-cgtab="' + k + '">' + l + '</button>'; };
-    var body = cg.tab === "column" ? columnTab(name, cols) : cg.tab === "bulk" ? bulkTab(name, cols) : curveTab(name, cols);
+    var body = isAI ? aiTab() : cg.tab === "column" ? columnTab(name, cols) : cg.tab === "bulk" ? bulkTab(name, cols) : curveTab(name, cols);
     return '<div class="cgpanel">'
-      + '<div class="cg-ptabs">' + tab("curve", "곡선 생성기") + tab("column", "열 설정") + tab("bulk", "일괄 편집")
-      + '<button class="cg-close" id="cg-close" title="닫기">✕</button></div>'
-      + '<div class="cg-thead"><span class="cg-tlab">대상 테이블</span>' + tsel + '</div>'
-      + '<p class="cg-tnote">선택한 테이블 값을 조정하면 <b>모든 탭(대시보드·육성경제·마스터·유닛설계·밸런스)</b>에 일괄 반영됩니다.</p>'
+      + '<button class="cg-close" id="cg-close" title="닫기">✕</button>'
+      + '<div class="cg-ptabs">' + tab("curve", "곡선 생성기") + tab("column", "열 설정") + tab("bulk", "일괄 편집") + tab("ai", "AI 교정") + '</div>'
+      + (isAI ? ''
+          : '<div class="cg-thead"><span class="cg-tlab">대상 테이블</span>' + tsel + '</div>'
+            + '<p class="cg-tnote">선택한 테이블 값을 조정하면 <b>모든 탭(대시보드·육성경제·마스터·유닛설계·밸런스)</b>에 일괄 반영됩니다.</p>')
       + '<div class="cg-pbody">' + body + '</div></div>';
   }
 

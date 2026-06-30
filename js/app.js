@@ -355,6 +355,12 @@
     // 대상 테이블 선택 → 패널만 갱신(열 선택은 새 테이블 기준으로 자동 보정)
     const tsel = document.getElementById("cg-table");
     if (tsel) tsel.addEventListener("change", () => { cg.table = tsel.value; refreshDock(); });
+    // AI 교정 서브탭 — 어느 탭에서든 교정안 생성·적용(적용은 전역 onApplyClick 위임이 처리)
+    const aiGo = document.getElementById("cg-ai-go");
+    if (aiGo) aiGo.addEventListener("click", () => onSuggest("all", "cg-ai-out", aiGo));
+    if (cg.tab === "ai" && suggStore["cg-ai-out"] && document.getElementById("cg-ai-out")) {
+      R.renderSuggestions("cg-ai-out", suggStore["cg-ai-out"]);
+    }
     // 이산 클릭(서브탭·유형·연산·반올림) → 패널만 갱신
     host.querySelectorAll("[data-cgtab]").forEach((b) => b.addEventListener("click", () => { cg.tab = b.dataset.cgtab; refreshDock(); }));
     host.querySelectorAll("[data-cgtype]").forEach((b) => b.addEventListener("click", () => { cg.type = b.dataset.cgtype; refreshDock(); }));
