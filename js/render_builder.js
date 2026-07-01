@@ -62,9 +62,16 @@
   function getGridScroll() { return gridScroll.top; }
   function resetGridScroll() { gridScroll = { top: 0, start: 0 }; }
 
-  function rowHtml(name, cols, row, ri, imported) {
-    const cells = cols.map((c) => cell(name, ri, c, row[c.field], imported)).join("");
-    return `<tr class="brow" data-brow="${ri}" data-brt="${esc(name)}">
+  function rowHtml(name, cols, row, ri, imported, bl) {
+    const blOn = !!bl;
+    let blRow = null, blNew = false;
+    if (bl) {
+      const id = row.Id;
+      if (id != null && id !== "") { blRow = bl.byId[String(id)] || null; blNew = !blRow; }
+      else { blRow = bl.rows[ri] || null; }  // Id 없는 CSV는 행 인덱스로 매칭
+    }
+    const cells = cols.map((c) => cell(name, ri, c, row[c.field], imported, blOn, blRow, blNew)).join("");
+    return `<tr class="brow${blNew ? " brow-new" : ""}" data-brow="${ri}" data-brt="${esc(name)}">
         <td class="bidx"><span class="bgrip" draggable="true" title="드래그하여 순서 이동">⠿</span><span class="bidx-n">${ri + 1}</span></td>
         ${cells}
         <td class="bact">
@@ -80,6 +87,7 @@
     const cols = info.columns;
     if (!cols.length) return "<div class='hint'>테이블을 선택하세요.</div>";
     const list = Builder.rows(name);
+    const bl = Builder.baselineIndex ? Builder.baselineIndex(name) : null;  // 최신 기준 대비 변경 셀 하이라이트
 
     const headFields = cols.map((c) => {
       const ref = c.ref ? `<span class="bref" title="참조: ${c.ref}">${c.ref[0] === "@" ? "↗" : "▾"}</span>` : "";
@@ -97,7 +105,7 @@
 
     // 소규모(임계 이하): 전체 렌더(기존 동작 그대로)
     if (list.length <= VTHRESHOLD) {
-      const body = list.map((row, ri) => rowHtml(name, cols, row, ri, info.imported)).join("");
+      const body = list.map((row, ri) => rowHtml(name, cols, row, ri, info.imported, bl)).join("");
       return `<div class="bgridwrap" data-vgrid="0">
         <table class="bgrid"><thead><tr><th class="bidx">#</th>${headFields}<th class="bact"></th></tr></thead>
         <tbody>${body}</tbody></table>
@@ -113,7 +121,7 @@
     const padBot = Math.max(0, (list.length - end) * VROW);
     let body = "";
     if (padTop > 0) body += `<tr class="vspace" style="height:${padTop}px"><td colspan="${totalCols}" style="padding:0;border:none"></td></tr>`;
-    for (let ri = start; ri < end; ri++) body += rowHtml(name, cols, list[ri], ri, info.imported);
+    for (let ri = start; ri < end; ri++) body += rowHtml(name, cols, list[ri], ri, info.imported, bl);
     if (padBot > 0) body += `<tr class="vspace" style="height:${padBot}px"><td colspan="${totalCols}" style="padding:0;border:none"></td></tr>`;
 
     return `<div class="bgridwrap" data-vgrid="1" data-vrows="${list.length}">
@@ -130,11 +138,24 @@
   }
 
   // 셀 렌더 — imported=true 면 CSV 원본값 그대로(가공 없이) 텍스트 표시
-  function cell(name, ri, col, value, imported) {
+  // blOn/blRow/blNew: 최신 기준 대비 변경 감지 → 변경 셀 하이라이트 + 기존값 title 툴팁
+  function cell(name, ri, col, value, imported, blOn, blRow, blNew) {
     const t = String(col.type).toLowerCase();
+    // ---- 기준 대비 변경 감지 ----
+    let chg = "", tip = "";
+    if (blOn) {
+      if (blNew) {
+        chg = " bnew"; tip = ' title="신규 행 · 기준에 없던 데이터"';
+      } else if (blRow) {
+        const orig = blRow[col.field];
+        const cur = value == null ? "" : String(value).trim();
+        const was = orig == null ? "" : String(orig).trim();
+        if (cur !== was) { chg = " bchanged"; tip = ' title="기존값: ' + esc(was === "" ? "(빈값)" : orig) + '"'; }
+      }
+    }
     if (imported) {
       const align = typeAlign(col.type) === "num" ? " num" : " l";
-      return `<td class="bedit${align}"><input type="text" class="binp btext" data-bt="${esc(name)}" data-br="${ri}" data-bf="${esc(col.field)}" value="${esc(value)}"></td>`;
+      return `<td class="bedit${align}${chg}"><input type="text" class="binp btext" data-bt="${esc(name)}" data-br="${ri}" data-bf="${esc(col.field)}" value="${esc(value)}"${tip}></td>`;
     }
     // 참조(Define / 마스터 FK) → 드롭다운
     if (col.ref) {
@@ -151,21 +172,21 @@
       if (!opts.some((o) => o.id === +cur) && !(isFK && +cur === 0)) {
         optHtml = `<option value="${esc(cur)}" selected>${esc(cur)} · (미정의)</option>` + optHtml;
       }
-      return `<td class="bedit bselcell"><select class="bsel" data-bt="${esc(name)}" data-br="${ri}" data-bf="${esc(col.field)}">${optHtml}</select></td>`;
+      return `<td class="bedit bselcell${chg}"><select class="bsel" data-bt="${esc(name)}" data-br="${ri}" data-bf="${esc(col.field)}"${tip}>${optHtml}</select></td>`;
     }
     if (t.startsWith("bool")) {
       const v = value === true || value === "true" || value === 1 || value === "1";
-      return `<td class="bedit bselcell"><select class="bsel bbool" data-bt="${esc(name)}" data-br="${ri}" data-bf="${esc(col.field)}">
+      return `<td class="bedit bselcell${chg}"><select class="bsel bbool" data-bt="${esc(name)}" data-br="${ri}" data-bf="${esc(col.field)}"${tip}>
         <option value="0"${!v ? " selected" : ""}>false</option><option value="1"${v ? " selected" : ""}>true</option></select></td>`;
     }
     if (t.startsWith("int") || t.startsWith("float") || t.startsWith("double") || t.startsWith("decimal")) {
       const step = (t.startsWith("float") || t.startsWith("double") || t.startsWith("decimal")) ? ' step="0.01"' : "";
-      return `<td class="bedit num"><input type="number" class="binp" data-bt="${esc(name)}" data-br="${ri}" data-bf="${esc(col.field)}" value="${esc(value)}"${step}></td>`;
+      return `<td class="bedit num${chg}"><input type="number" class="binp" data-bt="${esc(name)}" data-br="${ri}" data-bf="${esc(col.field)}" value="${esc(value)}"${step}${tip}></td>`;
     }
     if (t.startsWith("datetime")) {
-      return `<td class="bedit l"><input type="text" class="binp btext" placeholder="YYYY-MM-DD HH:mm" data-bt="${esc(name)}" data-br="${ri}" data-bf="${esc(col.field)}" value="${esc(value)}"></td>`;
+      return `<td class="bedit l${chg}"><input type="text" class="binp btext" placeholder="YYYY-MM-DD HH:mm" data-bt="${esc(name)}" data-br="${ri}" data-bf="${esc(col.field)}" value="${esc(value)}"${tip}></td>`;
     }
-    return `<td class="bedit l"><input type="text" class="binp btext" data-bt="${esc(name)}" data-br="${ri}" data-bf="${esc(col.field)}" value="${esc(value)}"></td>`;
+    return `<td class="bedit l${chg}"><input type="text" class="binp btext" data-bt="${esc(name)}" data-br="${ri}" data-bf="${esc(col.field)}" value="${esc(value)}"${tip}></td>`;
   }
 
   // ---- 베이스라인(기준 저장) 바 ----
@@ -179,7 +200,8 @@
       <button class="bl-btn alt" data-bl-diff="${i}">비교</button>
       <button class="bl-x" data-bl-del="${i}" title="삭제">✕</button>
     </span>`).join("");
-    return `<div class="baselinebar"><span class="bl-h">📌 저장된 기준</span>${items}</div>`;
+    return `<div class="baselinebar"><span class="bl-h">📌 저장된 기준</span>${items}
+      <span class="bl-legend"><span class="bl-lg chg"></span>변경 <span class="bl-lg new"></span>신규 <span class="muted">· 최신 기준 대비 · 셀에 마우스 올리면 기존값</span></span></div>`;
   }
 
   // ---- 곡선 생성기 / 열 설정 / 일괄 편집 패널 -----------------
@@ -357,7 +379,7 @@
           <button class="btn" id="b-load-files">CSV 파일 불러오기</button>
           <input type="file" id="b-files-file" accept=".csv" multiple style="display:none">
           <span class="bbar-sep"></span>
-          <button class="btn" id="b-baseline" title="현재 데이터 테이블을 기준으로 저장">💾 기준 저장</button>
+          <button class="btn" id="b-baseline" title="현재 데이터를 기준으로 저장 → 이후 변경 셀이 노랑으로 강조되고 마우스오버 시 기존값이 표시됩니다">💾 기준 저장</button>
           <button class="btn" id="b-validate" title="중복 Id·참조 무결성 검증">🔍 검증</button>
           <button class="btn" id="b-auditlog" title="변경 이력(감사 로그)">📝 이력</button>
           <button class="btn accent" id="b-curve" title="곡선 생성 · 일괄 편집">📈 곡선·일괄</button>

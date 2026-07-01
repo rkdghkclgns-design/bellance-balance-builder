@@ -928,6 +928,18 @@
     const list = baselines();
     if (idx >= 0 && idx < list.length) { list.splice(idx, 1); Data.save(); }
   }
+  // 최신 기준(baseline)을 Id별로 인덱싱 — 변경 셀 하이라이트/기존값 비교용. 기준 없으면 null.
+  function baselineIndex(name) {
+    ensure();
+    const list = Data.state.baselines;
+    if (!list || !list.length) return null;
+    const b = list[list.length - 1];             // 최신 기준을 레퍼런스로 사용
+    const rows = (b && b.data && b.data[name]) ? b.data[name] : null;
+    if (!rows) return null;
+    const byId = {};
+    rows.forEach((r) => { if (r && r.Id != null && r.Id !== "") byId[String(r.Id)] = r; });
+    return { byId: byId, rows: rows, label: b.label };
+  }
 
   // ---- 데이터 검증 (중복 Id / 빈 Id / 참조 무결성) ----
   function validate(cap) {
@@ -1168,7 +1180,7 @@
     refOptions, refLabel, tableCSV, downloadCSV, copyCSV, exportJSON, importJSON, importCSV, downloadAllZip,
     syncAll, isTable: (n) => !!S.tables[n], importedNames,
     patchCatalog, applyPatch, genContext, appendRows,
-    baselines, saveBaseline, restoreBaseline, deleteBaseline,
+    baselines, saveBaseline, restoreBaseline, deleteBaseline, baselineIndex,
     validate, diff, auditLog,
   };
 })();

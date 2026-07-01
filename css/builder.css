@@ -402,6 +402,19 @@ table.bgrid { border-collapse: separate; border-spacing: 0; font-size: 12px; wid
 .bedit.num input { text-align: right; color: var(--sel); }
 .bedit input.btext { color: var(--ink); text-align: left; min-width: 96px; }
 .bedit:focus-within { box-shadow: inset 0 0 0 2px var(--sel); background: var(--sel-bg); }
+/* ---- 기준(baseline) 대비 변경 셀 하이라이트 + 기존값 툴팁(title) ---- */
+.bgrid td.bchanged { background: #fff3ca; position: relative; }
+.bgrid td.bchanged .binp, .bgrid td.bchanged .bsel { color: #8a5a00; font-weight: 700; }
+.bgrid td.bnew { background: #e6f7ee; position: relative; }
+.bgrid td.bnew .binp, .bgrid td.bnew .bsel { color: #1e7a45; font-weight: 600; }
+.bgrid td.bchanged::after, .bgrid td.bnew::after { content: ""; position: absolute; top: 0; right: 0;
+  width: 0; height: 0; border-top: 7px solid #e69500; border-left: 7px solid transparent; pointer-events: none; }
+.bgrid td.bnew::after { border-top-color: #27ae60; }
+.bgrid tr.brow-new .bidx { box-shadow: inset 3px 0 0 #27ae60; }
+.baselinebar .bl-legend { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--ink-2); }
+.baselinebar .bl-lg { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+.baselinebar .bl-lg.chg { background: #fff3ca; border: 1px solid #e69500; }
+.baselinebar .bl-lg.new { background: #e6f7ee; border: 1px solid #27ae60; }
 .bselcell { background: #f4f8ff; padding: 0; }
 .bsel { border: none; background: transparent; font-family: var(--mono); font-size: 11.5px; padding: 5px 6px;
   outline: none; width: 100%; max-width: 210px; cursor: pointer; color: var(--ink); }
